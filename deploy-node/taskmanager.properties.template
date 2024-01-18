@@ -11,4 +11,4 @@ zookeeper.root_path=/openmldb
 spark.home=
 spark.master=local[*]
 offline.data.prefix=hdfs://namenode:19000/tmp/openmldb_offline_storage/
-spark.default.conf=spark.driver.extraJavaOptions=-Dfile.encoding=utf-8;spark.executor.extraJavaOptions=-Dfile.encoding=utf-8
+spark.default.conf=spark.driver.extraJavaOptions=-Dfile.encoding=utf-8;spark.executor.extraJavaOptions=-Dfile.encoding=utf-8;spark.sql.catalog.hive_prod=org.apache.iceberg.spark.SparkCatalog;spark.sql.catalog.hive_prod.type=hive;spark.sql.catalog.hive_prod.uri=thrift://hive-metastore:9083

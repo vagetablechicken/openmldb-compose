@@ -1,0 +1,2 @@
+#!/bin/bash
+$SPARK_HOME/bin/spark-sql -d spark.sql.catalog.hive_prod=org.apache.iceberg.spark.SparkCatalog -d spark.sql.catalog.hive_prod.type=hive -d spark.sql.catalog.hive_prod.uri=thrift://hive-metastore:9083

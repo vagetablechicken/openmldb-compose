@@ -24,9 +24,13 @@ services:
         source: ./deploy-node/taskmanager.properties.template
         target: /work/openmldb/conf/taskmanager.properties.template
       # test new sbin
-      # - type: bind
-      #   source: ../OpenMLDB/release/sbin/
-      #   target: /work/openmldb/sbin/
+      - type: bind
+        source: ../OpenMLDB-main/release/sbin/
+        target: /work/openmldb/sbin/
+      # test entire release
+      - type: bind
+        source: ../release-test/openmldb/
+        target: /work/openmldb/
       # test resources mount
       - type: bind
         source: ./test/
@@ -38,7 +42,7 @@ services:
       /work/openmldb/sbin/deploy-all.sh && /work/openmldb/sbin/start-all.sh
       tail -f /dev/null
     # no extra host and ip, deploy-all ok. Each container for a service joins the default network and is both reachable by other containers on that network, and discoverable by the service's name.
-    # /work/openmldb/sbin/openmldb-cli.sh to check
+    # echo "show components;" | /work/openmldb/sbin/openmldb-cli.sh to check
     depends_on:
       - zk
       - ns
@@ -79,6 +83,8 @@ services:
     deploy:
       mode: replicated
       replicas: 2
+    # extra_hosts: # for localhost hive failed if hive use hdfs://localhost:xxx
+    #   - "host.docker.internal:host-gateway"
 
   api:
     image: openmldb-runner
@@ -90,6 +96,7 @@ services:
 
   # Hadoop cluster https://github.com/big-data-europe/docker-hadoop/blob/master/hadoop.env
   # address: hdfs://namenode:19000
+  # start hive on localhost
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
@@ -143,8 +150,110 @@ services:
       - hadoop_historyserver:/hadoop/yarn/timeline
     env_file:
       - ./hadoop.env
-  
+  # for hive
+  hive-postgres:
+    image: postgres:14-alpine
+    container_name: hive-postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - hive_postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=hive
+      - POSTGRES_DB=metastore_db
+
+  hive-metastore:
+    image: hive-allinone
+    container_name: hive-metastore
+    build:
+      context: hive
+    ports:
+      - 9083:9083
+    volumes:
+      - type: bind
+        source: ./hive/hive-site.xml
+        target: /opt/hive/conf/hive-site.xml
+      - type: bind
+        source: ./hive/core-site.xml
+        target: /opt/hadoop/etc/hadoop/core-site.xml
+      - type: bind
+        source: ./hive/postgresql-42.5.1.jar
+        target: /opt/hive/lib/postgresql-42.5.1.jar
+    tty: true
+    depends_on:
+      - namenode
+      - datanode
+      - hive-postgres
+    command:
+      - /bin/bash
+      - -c
+      - |
+        /opt/hadoop/bin/hdfs dfs -mkdir -p /user/hive/warehouse
+        /opt/hadoop/bin/hdfs dfs -mkdir -p /tmp
+        /opt/hadoop/bin/hdfs dfs -chmod g+w /user/hive/warehouse
+        /opt/hadoop/bin/hdfs dfs -chmod g+w /tmp
+        /opt/hive/bin/schematool -dbType postgres -initSchema
+        mkdir -p /tmp/hs2
+        /opt/hive/bin/hive --service hiveserver2 > /tmp/hs2/hive.log 2>&1 &
+        /opt/hive/bin/hive --service metastore
+
 volumes:
   hadoop_namenode:
   hadoop_datanode:
   hadoop_historyserver:
+  hive_postgres:
+  # you can cleanup the data by 
+  # docker-compose2 down hive-postgres && docker-compose2 down hive-metastore && docker volume rm openmldb-compose_hive_postgres && docker-compose2 up -d
+
+  # https://github.com/big-data-europe/docker-hive
+  # hive3 in https://github.com/big-data-europe/docker-hive/pull/56/files#
+  # but no iceberg support, hive4.0.0
+#   namenode:
+#     image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+#     volumes:
+#       - namenode:/hadoop/dfs/name
+#     environment:
+#       - CLUSTER_NAME=test
+#     env_file:
+#       - ./hadoop-hive.env
+#     ports:
+#       - "50070:50070"
+#   datanode:
+#     image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+#     volumes:
+#       - datanode:/hadoop/dfs/data
+#     env_file:
+#       - ./hadoop-hive.env
+#     environment:
+#       SERVICE_PRECONDITION: "namenode:50070"
+#     ports:
+#       - "50075:50075"
+#   hive-server:
+#     image: bde2020/hive:2.3.2-postgresql-metastore
+#     env_file:
+#       - ./hadoop-hive.env
+#     environment:
+#       HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
+#       SERVICE_PRECONDITION: "hive-metastore:9083"
+#     ports:
+#       - "10003:10000"
+#   hive-metastore:
+#     image: bde2020/hive:2.3.2-postgresql-metastore
+#     env_file:
+#       - ./hadoop-hive.env
+#     command: /opt/hive/bin/hive --service metastore
+#     environment:
+#       SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432"
+#     ports:
+#       - "9083:9083"
+#   hive-metastore-postgresql:
+#     image: bde2020/hive-metastore-postgresql:2.3.0
+#   presto-coordinator:
+#     image: shawnzhu/prestodb:0.181
+#     ports:
+#       - "8082:8080"
+
+# volumes:
+#   namenode:
+#   datanode:

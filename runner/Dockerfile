@@ -23,5 +23,6 @@ RUN cat /keys/config >> /root/.ssh/config
 RUN apt-get update && \
     apt-get install -y openssh-server vim rsync curl
 
+ENV JAVA_HOME /usr/local/openjdk-11
 USER root
 ENTRYPOINT service ssh start && bash
