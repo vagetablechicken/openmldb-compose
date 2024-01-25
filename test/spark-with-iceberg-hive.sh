@@ -1,0 +1,2 @@
+#!/bin/bash
+$SPARK_HOME/bin/spark-sql -c spark.openmldb.sparksql=true -c spark.sql.catalog.hive_prod=org.apache.iceberg.spark.SparkCatalog -c spark.sql.catalog.hive_prod.type=hive -c spark.sql.catalog.hive_prod.uri=thrift://hive-metastore:9083 -c spark.sql.catalog.hive_prod.warehouse=hdfs://namenode:19000/user/hive/iceberg_storage

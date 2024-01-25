@@ -13,7 +13,7 @@ services:
     tty: true
     hostname: deploy-node
     volumes:
-      # for deploy, default config and you can save the changes in container
+      # for deploy, default config and you can save the changes in deploy-node container
       - type: bind
         source: ./deploy-node/hosts
         target: /work/openmldb/conf/hosts
@@ -23,15 +23,29 @@ services:
       - type: bind
         source: ./deploy-node/taskmanager.properties.template
         target: /work/openmldb/conf/taskmanager.properties.template
-      # test new sbin
+      # deploy-node can access hdfs and hive
       - type: bind
-        source: ../OpenMLDB-main/release/sbin/
-        target: /work/openmldb/sbin/
+        source: ./hive/hive-site.xml
+        target: /opt/hive/conf/hive-site.xml
+      - type: bind
+        source: ./hive/core-site.xml
+        target: /opt/hadoop/etc/hadoop/core-site.xml
+      - type: bind
+        source: ./hive/postgresql-42.5.1.jar
+        target: /opt/hive/lib/postgresql-42.5.1.jar
+      # spark will read hive home config, TODO
+      - type: bind
+        source: ./hive/postgresql-42.5.1.jar
+        target: /work/openmldb/spark/jars/postgresql-42.5.1.jar
+      # test new sbin
+      # - type: bind
+      #   source: ../OpenMLDB-main/release/sbin/
+      #   target: /work/openmldb/sbin/
       # test entire release
       - type: bind
         source: ../release-test/openmldb/
         target: /work/openmldb/
-      # test resources mount
+      # test resources mount, don't comment it
       - type: bind
         source: ./test/
         target: /work/test/
@@ -39,10 +53,11 @@ services:
     - /bin/bash
     - -c
     - |
+      echo "source /work/test/funcs.sh" >> ~/.bashrc
       /work/openmldb/sbin/deploy-all.sh && /work/openmldb/sbin/start-all.sh
       tail -f /dev/null
-    # no extra host and ip, deploy-all ok. Each container for a service joins the default network and is both reachable by other containers on that network, and discoverable by the service's name.
-    # echo "show components;" | /work/openmldb/sbin/openmldb-cli.sh to check
+    # no extra host option or ip option, deploy-all ok. Each container for a service joins the default network and is both reachable by other containers on that network, and discoverable by the service's name.
+    # `st` to check
     depends_on:
       - zk
       - ns
@@ -83,7 +98,7 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-    # extra_hosts: # for localhost hive failed if hive use hdfs://localhost:xxx
+    # extra_hosts: # for host hive, but it'll fail if hive use hdfs://localhost:xxx (hdfs can't be accessed by container), so create hive&hdfs in compose
     #   - "host.docker.internal:host-gateway"
 
   api:
@@ -154,6 +169,7 @@ services:
   hive-postgres:
     image: postgres:14-alpine
     container_name: hive-postgres
+    restart: always
     ports:
       - 5432:5432
     volumes:
@@ -166,6 +182,7 @@ services:
   hive-metastore:
     image: hive-allinone
     container_name: hive-metastore
+    restart: always
     build:
       context: hive
     ports:
@@ -193,18 +210,38 @@ services:
         /opt/hadoop/bin/hdfs dfs -mkdir -p /tmp
         /opt/hadoop/bin/hdfs dfs -chmod g+w /user/hive/warehouse
         /opt/hadoop/bin/hdfs dfs -chmod g+w /tmp
-        /opt/hive/bin/schematool -dbType postgres -initSchema
-        mkdir -p /tmp/hs2
+        /opt/hive/bin/schematool -dbType postgres -initSchema || true # initSchema will fail if metastore_db exists
+        mkdir -p /tmp/hs2 /tmp/meta
         /opt/hive/bin/hive --service hiveserver2 > /tmp/hs2/hive.log 2>&1 &
-        /opt/hive/bin/hive --service metastore
+        /opt/hive/bin/hive --service metastore > /tmp/meta/hive.log 2>&1 &
+        tail -f /dev/null
+
+  # https://hub.docker.com/r/tabulario/iceberg-rest
+  # use config to connect rest service
+  # spark.sql.catalog.rest                    org.apache.iceberg.spark.SparkCatalog
+  # spark.sql.catalog.rest.catalog-impl       org.apache.iceberg.rest.RESTCatalog
+  # spark.sql.catalog.rest.uri                http://0.0.0.0:8181/
+  iceberg-rest:
+    image: iceberg-rest
+    build:
+      context: iceberg-rest-image
+    container_name: iceberg-rest
+    environment: # __ means -
+      - CATALOG_CATALOG__IMPL=org.apache.iceberg.hive.HiveCatalog
+      - CATALOG_URI=thrift://hive-metastore:9083
+    depends_on:
+      - hive-metastore
+
+networks:
+  default:
+    name: openmldb-hw
+    driver: bridge
 
 volumes:
   hadoop_namenode:
   hadoop_datanode:
   hadoop_historyserver:
   hive_postgres:
-  # you can cleanup the data by 
-  # docker-compose2 down hive-postgres && docker-compose2 down hive-metastore && docker volume rm openmldb-compose_hive_postgres && docker-compose2 up -d
 
   # https://github.com/big-data-europe/docker-hive
   # hive3 in https://github.com/big-data-europe/docker-hive/pull/56/files#

@@ -25,7 +25,7 @@
 
   <property>
     <name>metastore.warehouse.external.dir</name>
-    <value>hdfs://namenode:19000/user/hive/warehouse</value>
+    <value>hdfs://namenode:19000/user/hive/external_warehouse</value>
     <description></description>
   </property>
 
@@ -33,5 +33,14 @@
     <name>metastore.warehouse.tenant.colocation</name>
     <value>true</value>
     <description>An external table's location should not be located within managed warehouse root directory, table:taxis_out,location:/user/hive/warehouse/nyc.db/taxis_out,managed warehouse:/user/hive/warehouse</description>
+  </property>
+
+   <property>
+    <name>hive.server2.enable.doAs</name>
+    <value>false</value>
+    <description>
+      Setting this property to true will have HiveServer2 execute
+      Hive operations as the user making the calls to it.
+    </description>
   </property>
 </configuration>
