@@ -29,11 +29,11 @@
     <description></description>
   </property>
 
-  <property>
+  <!--NEEDLESS <property>
     <name>metastore.warehouse.tenant.colocation</name>
     <value>true</value>
-    <description>An external table's location should not be located within managed warehouse root directory, table:taxis_out,location:/user/hive/warehouse/nyc.db/taxis_out,managed warehouse:/user/hive/warehouse</description>
-  </property>
+    <description></description>
+  </property> -->
 
    <property>
     <name>hive.server2.enable.doAs</name>

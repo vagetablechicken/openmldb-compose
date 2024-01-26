@@ -102,6 +102,11 @@ $HIVE_HOME/bin/beeline -u jdbc:hive2://hive-metastore:10000 # cli on client
 show databases; # one `default` db
 ```
 
+spark-sql start way:
+```
+$SPARK_HOME/bin/spark-sql --properties-file test/spark.extra.ini -c spark.openmldb.sparksql=true
+```
+
 ## Iceberg Test
 
 Creation ref https://iceberg.apache.org/hive-quickstart/.
@@ -150,6 +155,36 @@ PARTITIONED BY (vendor_id);
 INSERT INTO taxis
 VALUES (1, 1000371, 1.8, 15.32, 'N'), (2, 1000372, 2.5, 22.15, 'N'), (2, 1000373, 0.9, 9.01, 'N'), (1, 1000374, 8.4, 42.13, 'Y');
 SELECT * FROM taxis;
+
+desc formatted hive_prod.nyc.taxis;
+select * from hive_prod.nyc.taxis;
+```
+
+```
+spark-sql> desc formatted hive_prod.nyc.taxis;
+vendor_id               bigint
+trip_id                 bigint
+trip_distance           float
+fare_amount             double
+store_and_fwd_flag      string
+
+# Partitioning
+Part 0                  vendor_id
+
+# Metadata Columns
+_spec_id                int
+_partition              struct<vendor_id:bigint>
+_file                   string
+_pos                    bigint
+_deleted                boolean
+
+# Detailed Table Information
+Name                    hive_prod.nyc.taxis
+Location                hdfs://namenode:19000/user/hive/iceberg_storage/nyc.db/taxis
+Provider                iceberg
+Owner                   root
+Table Properties        [current-snapshot-id=3471065469702081851,format=iceberg/parquet,format-version=2,write.parquet.compression-codec=zstd]
+Time taken: 0.289 seconds, Fetched 22 row(s)
 ```
 
 Location should be `Location                hdfs://namenode:19000/user/hive/iceberg_storage/nyc.db/taxis`.
@@ -220,10 +255,135 @@ And I use the hive catalog in previous chapter, so we can access table `<catalog
 /work/openmldb/sbin/openmldb-cli.sh --spark_conf $(pwd)/test/spark.extra.ini < test/iceberg-rest.sql
 ```
 
-TODO 
-hive uris way(make spark_catalog be hive catalog):
-select * from nyc.taxis;
-hive ACID
+### Session Catalog
+
+Make spark_catalog be hive catalog, like uris way:
+```
+spark.sql.catalog.spark_catalog = org.apache.iceberg.spark.SparkSessionCatalog
+spark.sql.catalog.spark_catalog.type = hive
+spark.sql.catalog.spark_catalog.uri = thrift://hive-metastore:9083
+```
+Notice that the catalog setted is spark_catalog, it's spark default catalog, so we can use spark_catalog.nyc.taxis or nyc.taxis. We can read/write tables.
+
+```
+spark-sql> desc formatted nyc.taxis;
+vendor_id               bigint
+trip_id                 bigint
+trip_distance           float
+fare_amount             double
+store_and_fwd_flag      string
+
+# Partitioning
+Part 0                  vendor_id
+
+# Metadata Columns
+_spec_id                int
+_partition              struct<vendor_id:bigint>
+_file                   string
+_pos                    bigint
+_deleted                boolean
+
+# Detailed Table Information
+Name                    spark_catalog.nyc.taxis
+Location                hdfs://namenode:19000/user/hive/iceberg_storage/nyc.db/taxis
+Provider                iceberg
+Owner                   root
+Table Properties        [current-snapshot-id=3471065469702081851,format=iceberg/parquet,format-version=2,write.parquet.compression-codec=zstd]
+Time taken: 0.289 seconds, Fetched 22 row(s)
+```
+
+If set hive_prod catalog to org.apache.iceberg.spark.SparkSessionCatalog, we can get tables in spark_catalog, but `select * from nyc.taxis;` get error:
+```
+java.lang.RuntimeException: java.lang.InstantiationException
+        at org.apache.hadoop.util.ReflectionUtils.newInstance(ReflectionUtils.java:137)
+        at org.apache.spark.rdd.HadoopRDD.getInputFormat(HadoopRDD.scala:191)
+```
+
+
+TODO hive ACID(managed?)
+```
+cd $HIVE_HOME
+bin/beeline -u jdbc:hive2://hive-metastore:10000  
+-- Connected to: Apache Hive (version 4.0.0-beta-1)
+-- Driver: Hive JDBC (version 4.0.0-beta-1)
+-- NOTE: don't make driver be 2.3.9, it's not compatible with hive 4.0.0-beta-1 metastore service? get some warning
+SET hive.support.concurrency=true;
+SET hive.txn.manager=org.apache.hadoop.hive.ql.lockmgr.DbTxnManager;
+# The follwoing are not required if you are using Hive 2.0
+SET hive.enforce.bucketing=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+# The following parameters are required for standalone hive metastore
+SET hive.compactor.initiator.on=true;
+SET hive.compactor.worker.threads=1
+CREATE TABLE acid_table (
+  col1 INT,
+  col2 STRING
+)
+STORED AS ORC
+TBLPROPERTIES ('transactional'='true');
+DESCRIBE FORMATTED default.acid_table;
+-- transactional is true
+
+
+-- compare with iceberg table
+DESC FORMATTED nyc.taxis;
+
+```
+
+
+spark.hadoop.hive.metastore.uris=thrift://hive-metastore:9083 can't work? log shows it can't link to metastore service.
+```
+24/01/26 05:55:43 INFO DataSourceUtil$: load data from catalog table, format hive, paths: hive://acid_table List()
+24/01/26 05:55:43 DEBUG DataSourceUtil$: session catalog org.apache.spark.sql.hive.HiveSessionCatalog@49bb808f
+24/01/26 05:55:43 DEBUG SparkSqlParser: Parsing command: show tables
+24/01/26 05:55:43 DEBUG CatalystSqlParser: Parsing command: spark_grouping_id
+24/01/26 05:55:44 INFO HiveConf: Found configuration file null
+```
+It can't work in openmldb. It needs other options in hive-site.xml, and I don't know which options are needed, just copy the hive-site.xml to spark home.
+And spark-sql load hive-site.xml automatically, probably it loads by $HIVE_HOME.
+
+In spark-sql(just read hive-site.xml), it's ok:
+```
+openmldb/spark/bin/spark-sql -c spark.openmldb.sparksql=true
+show databases;
+use default;
+desc formatted default.acid_table;
+INSERT INTO acid_table VALUES (1, 'a'), (2, 'b'), (3, 'c');
+SELECT * FROM acid_table;
+```
+In OpenMLDB, needs to copy hive-site.xml to tm1 host:
+```
+cp /opt/hive/conf/hive-site.xml openmldb/spark/conf/
+deploya
+/work/openmldb/sbin/openmldb-cli.sh < test/create_like_hive_acid.sql
+```
+
+Can I use iceberg session catalog?
+run spark-sql on tm1, to avoid HIVE_HOME effect. If we use hive_prod configs, in hive_prod catalog default db, **we can't see acid_table(it's not iceberg table)**.
+
+use session catalog:
+```
+export JAVA_HOME=/usr/local/openjdk-11/
+/work/openmldb/spark/bin/spark-sql -c spark.openmldb.sparksql=true -c spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog \
+-c spark.sql.catalog.spark_catalog.type=hive \
+-c spark.sql.catalog.spark_catalog.uri=thrift://hive-metastore:9083
+```
+can't see any table in default db, in spark_catalog catalog.
+So hive-site.xml is needed. 
+
+In deploy-node
+spark-sql can use hive-site.xml to read/write acid table. But if no org.apache.iceberg.spark.SparkSessionCatalog, we can't select iceberg table in hive. If add the config about org.apache.iceberg.spark.SparkSessionCatalog, we can read/write iceberg table.
+
+
+To avoid uris effect, run in deploy-node:
+enable.hive.support=false -> spark.sql.catalogImplementation=hive or others
+cp /opt/hive/conf/hive-site.xml openmldb/spark/conf/
+deploya
+stopt # disable hive support needs restart tm
+starta
+
+TODO test in openmldb?
+
 
 ## Thanks
 

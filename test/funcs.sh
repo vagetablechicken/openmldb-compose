@@ -5,6 +5,11 @@ joblog() {
   echo 'show joblog' "$@" ';' | /work/openmldb/sbin/openmldb-cli.sh
 }
 
+jobs() {
+  set -o xtrace
+  echo 'show jobs;' | /work/openmldb/sbin/openmldb-cli.sh
+}
+
 cli() {
   /work/openmldb/sbin/openmldb-cli.sh --interactive=false
 }
