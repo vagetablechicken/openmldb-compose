@@ -10,4 +10,5 @@ zookeeper.root_path=/openmldb
 # Spark Config
 spark.home=
 spark.master=local[*]
-offline.data.prefix=hdfs://namenode:19000/tmp/openmldb_offline_storage/
+offline.data.prefix=hdfs://namenode:9000/tmp/openmldb_offline_storage/
+enable.hive.support=false

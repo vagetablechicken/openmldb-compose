@@ -1,24 +1,24 @@
-# test hosts
+# test hosts, must consistent with docker-compose.yml replicas
 [tablet]
 openmldb-compose-ts-1:10921 /tmp/openmldb/tablet
 openmldb-compose-ts-2:10921 /tmp/openmldb/tablet
 
 [nameserver]
 openmldb-compose-ns-1:7527 /tmp/openmldb/nameserver
-openmldb-compose-ns-2:7527 /tmp/openmldb/nameserver
+#openmldb-compose-ns-2:7527 /tmp/openmldb/nameserver
 
 [apiserver]
 openmldb-compose-api-1:9080 /tmp/openmldb/apiserver
-openmldb-compose-api-2:9080 /tmp/openmldb/apiserver
+#openmldb-compose-api-2:9080 /tmp/openmldb/apiserver
 
 [taskmanager]
 openmldb-compose-tm-1:9902 /tmp/openmldb/taskmanager
-openmldb-compose-tm-2:9902 /tmp/openmldb/taskmanager
+#openmldb-compose-tm-2:9902 /tmp/openmldb/taskmanager
 
 [zookeeper]
 openmldb-compose-zk-1:2181:2888:3888
 #/tmp/openmldb/zk
-openmldb-compose-zk-2:2181:2888:3888 
+# openmldb-compose-zk-2:2181:2888:3888 
 #/tmp/openmldb/zk
-openmldb-compose-zk-3:2181:2888:3888 
+# openmldb-compose-zk-3:2181:2888:3888 
 #/tmp/openmldb/zk

@@ -1,2 +1,2 @@
 #!/bin/bash
-$SPARK_HOME/bin/spark-sql -c spark.openmldb.sparksql=true -c spark.sql.catalog.hive_prod=org.apache.iceberg.spark.SparkCatalog -c spark.sql.catalog.hive_prod.type=hive -c spark.sql.catalog.hive_prod.uri=thrift://hive-metastore:9083 -c spark.sql.catalog.hive_prod.warehouse=hdfs://namenode:19000/user/hive/iceberg_storage
+$SPARK_HOME/bin/spark-sql -c spark.openmldb.sparksql=true -c spark.sql.catalog.hive_prod=org.apache.iceberg.spark.SparkCatalog -c spark.sql.catalog.hive_prod.type=hive -c spark.sql.catalog.hive_prod.uri=thrift://metastore:9083 -c spark.sql.warehouse.dir=hdfs://namenode:19000/user/hive/warehouse -c spark.sql.catalog.hive_prod.warehouse=hdfs://namenode:19000/user/hive/iceberg_storage -c spark.sql.catalogImplementation=in-memory

@@ -35,6 +35,14 @@ st() {
   openmldb_tool -c openmldb-compose-zk-1:2181/openmldb status --conn
 }
 
+ins() {
+  openmldb_tool -c openmldb-compose-zk-1:2181/openmldb inspect
+}
+
 tm1() {
-  ssh openmldb-compose-tm-1
+  ssh openmldb-compose-tm-1 "$@"
+}
+
+rm_spark() {
+  "$@" "rm -rf /work/openmldb/spark && ls -l /work/openmldb/spark"
 }

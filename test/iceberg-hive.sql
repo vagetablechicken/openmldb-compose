@@ -8,7 +8,7 @@ create table db.iceberg_hive_table(
 );
 set @@sync_job=true;
 
-load data infile 'iceberg://hive_prod.nyc.taxis' into table db.iceberg_hive_table options(mode='overwrite'); -- offline
+load data infile 'iceberg://hive_prod.nyc.taxis' into table db.iceberg_hive_table options(mode='overwrite', sql='select * from hive_prod.nyc.taxis where vendor_id=1'); -- offline
 desc db.iceberg_hive_table;
 select * from db.iceberg_hive_table;
 

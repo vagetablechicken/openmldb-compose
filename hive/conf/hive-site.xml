@@ -1,7 +1,7 @@
 <configuration>
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:postgresql://hive-postgres:5432/metastore_db</value>
+    <value>jdbc:postgresql://postgres:5432/metastore_db</value>
     <description>PostgreSQL JDBC driver connection URL</description>
   </property>
 
@@ -25,10 +25,14 @@
 
   <property>
     <name>metastore.warehouse.external.dir</name>
-    <value>hdfs://namenode:19000/user/hive/external_warehouse</value>
+    <value>hdfs://namenode:9000/user/hive/external_warehouse</value>
     <description></description>
   </property>
-
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>hdfs://namenode:9000/user/hive/warehouse</value>
+    <description></description>
+  </property>
   <!--NEEDLESS <property>
     <name>metastore.warehouse.tenant.colocation</name>
     <value>true</value>
@@ -41,6 +45,16 @@
     <description>
       Setting this property to true will have HiveServer2 execute
       Hive operations as the user making the calls to it.
+    </description>
+  </property>
+  <property>
+    <name>metastore.metastore.event.db.notification.api.auth</name>
+    <value>false</value>
+    <description>
+      Setting this property to true will have the metastore
+      send event notifications to the configured listener.
+
+      Not authorized to make the get_notification_events_count call. You can try to disable metastore.metastore.event.db.notification.api.auth
     </description>
   </property>
 </configuration>

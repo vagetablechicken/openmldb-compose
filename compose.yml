@@ -1,7 +1,5 @@
 version: '3'
-# test network
 # name: openmldb_sbin # 3.8 supports
-# Creating network "docker-cluster_default" with the default driver
 
 services:
   deploy-node:
@@ -23,21 +21,31 @@ services:
       - type: bind
         source: ./deploy-node/taskmanager.properties.template
         target: /work/openmldb/conf/taskmanager.properties.template
-      # deploy-node can access hdfs and hive
+      # info log for spark-shell/sql
       - type: bind
-        source: ./hive/hive-site.xml
-        target: /opt/hive/conf/hive-site.xml
+        source: ./deploy-node/log4j.properties
+        target: /work/openmldb/spark/conf/log4j.properties
       - type: bind
-        source: ./hive/core-site.xml
-        target: /opt/hadoop/etc/hadoop/core-site.xml
-      - type: bind
-        source: ./hive/postgresql-42.5.1.jar
-        target: /opt/hive/lib/postgresql-42.5.1.jar
-      # spark will read hive home config, TODO
+        source: ./hive/conf/hive-site.xml
+        target: /work/openmldb/spark/conf/hive-site.xml
+      # hive with postgre, so spark need postgre jar to connect
       - type: bind
         source: ./hive/postgresql-42.5.1.jar
         target: /work/openmldb/spark/jars/postgresql-42.5.1.jar
-      # test new sbin
+
+      # if you want to use hive cli in deploy-node. Normally, you can use beeline in any container.
+      # - type: bind
+      #   source: ./hive/conf/hive-site.xml
+      #   target: /opt/hive/conf/hive-site.xml
+      # if you want to use hadoop more simply, otherwise, run `hadoop fs -fs hdfs://namenode:9000 ...`
+      # - type: bind
+      #   source: ./hive/conf/core-site.xml
+      #   target: /opt/hadoop/etc/hadoop/core-site.xml
+      # - type: bind
+      #   source: ./hive/postgresql-42.5.1.jar
+      #   target: /opt/hive/lib/postgresql-42.5.1.jar
+
+      # test new sbin if needed
       # - type: bind
       #   source: ../OpenMLDB-main/release/sbin/
       #   target: /work/openmldb/sbin/
@@ -56,7 +64,8 @@ services:
       echo "source /work/test/funcs.sh" >> ~/.bashrc
       /work/openmldb/sbin/deploy-all.sh && /work/openmldb/sbin/start-all.sh
       tail -f /dev/null
-    # no extra host option or ip option, deploy-all ok. Each container for a service joins the default network and is both reachable by other containers on that network, and discoverable by the service's name.
+    # no extra host option or ip option, deploy-all ok. Each container for a service joins the default network and is both reachable 
+    # by other containers on that network, and discoverable by the service's name.
     # `st` to check
     depends_on:
       - zk
@@ -73,15 +82,15 @@ services:
     tty: true
     deploy:
       mode: replicated
-      replicas: 3
-    # expose?
+      replicas: 1
+
   ns:
     image: openmldb-runner
     restart: always
     tty: true
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 1
 
   ts:
     image: openmldb-runner
@@ -107,114 +116,7 @@ services:
     tty: true
     deploy:
       mode: replicated
-      replicas: 2
-
-  # Hadoop cluster https://github.com/big-data-europe/docker-hadoop/blob/master/hadoop.env
-  # address: hdfs://namenode:19000
-  # start hive on localhost
-  namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
-    container_name: namenode
-    restart: always
-    ports:
-      - 9871:9870 # 9870 confict, host use 9871, don't change port in container network
-      - 19000:19000
-    volumes:
-      - hadoop_namenode:/hadoop/dfs/name
-    environment:
-      - CLUSTER_NAME=hdfs-test
-    env_file:
-      - ./hadoop.env
-
-  datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: datanode
-    restart: always
-    volumes:
-      - hadoop_datanode:/hadoop/dfs/data
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870"
-    env_file:
-      - ./hadoop.env
-  
-  resourcemanager:
-    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
-    container_name: resourcemanager
-    restart: always
-    environment:
-      SERVICE_PRECONDITION: "namenode:19000 namenode:9870 datanode:9864"
-    env_file:
-      - ./hadoop.env
-
-  nodemanager1:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
-    container_name: nodemanager
-    restart: always
-    environment:
-      SERVICE_PRECONDITION: "namenode:19000 namenode:9870 datanode:9864 resourcemanager:8088"
-    env_file:
-      - ./hadoop.env
-  
-  historyserver:
-    image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
-    container_name: historyserver
-    restart: always
-    environment:
-      SERVICE_PRECONDITION: "namenode:19000 namenode:9870 datanode:9864 resourcemanager:8088"
-    volumes:
-      - hadoop_historyserver:/hadoop/yarn/timeline
-    env_file:
-      - ./hadoop.env
-  # for hive
-  hive-postgres:
-    image: postgres:14-alpine
-    container_name: hive-postgres
-    restart: always
-    ports:
-      - 5432:5432
-    volumes:
-      - hive_postgres:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_USER=hive
-      - POSTGRES_DB=metastore_db
-
-  hive-metastore:
-    image: hive-allinone
-    container_name: hive-metastore
-    restart: always
-    build:
-      context: hive
-    ports:
-      - 9083:9083
-    volumes:
-      - type: bind
-        source: ./hive/hive-site.xml
-        target: /opt/hive/conf/hive-site.xml
-      - type: bind
-        source: ./hive/core-site.xml
-        target: /opt/hadoop/etc/hadoop/core-site.xml
-      - type: bind
-        source: ./hive/postgresql-42.5.1.jar
-        target: /opt/hive/lib/postgresql-42.5.1.jar
-    tty: true
-    depends_on:
-      - namenode
-      - datanode
-      - hive-postgres
-    command:
-      - /bin/bash
-      - -c
-      - |
-        /opt/hadoop/bin/hdfs dfs -mkdir -p /user/hive/warehouse
-        /opt/hadoop/bin/hdfs dfs -mkdir -p /tmp
-        /opt/hadoop/bin/hdfs dfs -chmod g+w /user/hive/warehouse
-        /opt/hadoop/bin/hdfs dfs -chmod g+w /tmp
-        /opt/hive/bin/schematool -dbType postgres -initSchema || true # initSchema will fail if metastore_db exists
-        mkdir -p /tmp/hs2 /tmp/meta
-        /opt/hive/bin/hive --service hiveserver2 > /tmp/hs2/hive.log 2>&1 &
-        /opt/hive/bin/hive --service metastore > /tmp/meta/hive.log 2>&1 &
-        tail -f /dev/null
+      replicas: 1
 
   # https://hub.docker.com/r/tabulario/iceberg-rest
   # use config to connect rest service
@@ -228,69 +130,22 @@ services:
     container_name: iceberg-rest
     environment: # __ means -
       - CATALOG_CATALOG__IMPL=org.apache.iceberg.hive.HiveCatalog
-      - CATALOG_URI=thrift://hive-metastore:9083
+      - CATALOG_URI=thrift://metastore:9083
     depends_on:
-      - hive-metastore
+      - metastore
 
 networks:
   default:
-    name: openmldb-hw
+    name: ${NETWORK_NAME}
     driver: bridge
 
-volumes:
-  hadoop_namenode:
-  hadoop_datanode:
-  hadoop_historyserver:
-  hive_postgres:
+# volumes:
+#   hadoop_namenode:
+#   hadoop_datanode:
+#   hadoop_historyserver:
+#   hive_postgres:
+#   postgres-db:
 
   # https://github.com/big-data-europe/docker-hive
   # hive3 in https://github.com/big-data-europe/docker-hive/pull/56/files#
-  # but no iceberg support, hive4.0.0
-#   namenode:
-#     image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
-#     volumes:
-#       - namenode:/hadoop/dfs/name
-#     environment:
-#       - CLUSTER_NAME=test
-#     env_file:
-#       - ./hadoop-hive.env
-#     ports:
-#       - "50070:50070"
-#   datanode:
-#     image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
-#     volumes:
-#       - datanode:/hadoop/dfs/data
-#     env_file:
-#       - ./hadoop-hive.env
-#     environment:
-#       SERVICE_PRECONDITION: "namenode:50070"
-#     ports:
-#       - "50075:50075"
-#   hive-server:
-#     image: bde2020/hive:2.3.2-postgresql-metastore
-#     env_file:
-#       - ./hadoop-hive.env
-#     environment:
-#       HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
-#       SERVICE_PRECONDITION: "hive-metastore:9083"
-#     ports:
-#       - "10003:10000"
-#   hive-metastore:
-#     image: bde2020/hive:2.3.2-postgresql-metastore
-#     env_file:
-#       - ./hadoop-hive.env
-#     command: /opt/hive/bin/hive --service metastore
-#     environment:
-#       SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432"
-#     ports:
-#       - "9083:9083"
-#   hive-metastore-postgresql:
-#     image: bde2020/hive-metastore-postgresql:2.3.0
-#   presto-coordinator:
-#     image: shawnzhu/prestodb:0.181
-#     ports:
-#       - "8082:8080"
-
-# volumes:
-#   namenode:
-#   datanode:
+  # but no iceberg support, needs hive 4.0.0
