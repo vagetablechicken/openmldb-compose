@@ -2,7 +2,8 @@ version: '3.9'
 # https://github.com/apache/hive/blob/master/packaging/src/docker/docker-compose.yml 
 services:
   postgres:
-    image: postgres:16.0
+    # The postgres:16 image uses Debian as its base, and has some issues
+    image: postgres:16-alpine
     restart: unless-stopped
     container_name: postgres
     hostname: postgres

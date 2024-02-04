@@ -6,7 +6,8 @@ services:
     container_name: deploy-node
     image: openmldb-deploy-node
     build:
-      context: deploy-node
+      context: ./
+      dockerfile: deploy-node/Dockerfile
     restart: always
     tty: true
     hostname: deploy-node
@@ -77,7 +78,8 @@ services:
   zk:
     image: openmldb-runner
     build:
-      context: runner
+      context: ./
+      dockerfile: runner/Dockerfile
     restart: always
     tty: true
     deploy:
@@ -124,9 +126,7 @@ services:
   # spark.sql.catalog.rest.catalog-impl       org.apache.iceberg.rest.RESTCatalog
   # spark.sql.catalog.rest.uri                http://0.0.0.0:8181/
   iceberg-rest:
-    image: iceberg-rest
-    build:
-      context: iceberg-rest-image
+    image: tabulario/iceberg-rest:latest
     container_name: iceberg-rest
     environment: # __ means -
       - CATALOG_CATALOG__IMPL=org.apache.iceberg.hive.HiveCatalog
@@ -138,14 +138,3 @@ networks:
   default:
     name: ${NETWORK_NAME}
     driver: bridge
-
-# volumes:
-#   hadoop_namenode:
-#   hadoop_datanode:
-#   hadoop_historyserver:
-#   hive_postgres:
-#   postgres-db:
-
-  # https://github.com/big-data-europe/docker-hive
-  # hive3 in https://github.com/big-data-europe/docker-hive/pull/56/files#
-  # but no iceberg support, needs hive 4.0.0

@@ -15,14 +15,17 @@ RUN mkdir -p /root/.ssh/ && \
     chmod 600 /root/.ssh/config
 
 COPY ssh-keys/ /keys/
-#COPY sources.list /etc/apt/sources.list
+ADD additions /additions
+RUN if [ -f "/additions/sources.list" ] ; then cp /additions/sources.list /etc/apt/ ; fi
 RUN cat /keys/id_rsa.pub >> /root/.ssh/authorized_keys
 RUN cat /keys/config >> /root/.ssh/config
+
 # receiver should have rsync too
 # You can test start without curl
 RUN apt-get update && \
     apt-get install -y openssh-server vim rsync curl
 
+RUN echo "set mouse-=a" >> ~/.vimrc
 ENV JAVA_HOME /usr/local/openjdk-11
 USER root
 ENTRYPOINT service ssh start && bash

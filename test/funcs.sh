@@ -27,6 +27,16 @@ stopt() {
   /work/openmldb/sbin/stop-taskmanagers.sh
 }
 
+startt() {
+  /work/openmldb/sbin/start-taskmanagers.sh
+}
+
+tm_update() {
+  deploya
+  stopt
+  startt
+}
+
 restarta() {
   /work/openmldb/sbin/stop-all.sh && /work/openmldb/sbin/clear-all.sh && starta
 }
