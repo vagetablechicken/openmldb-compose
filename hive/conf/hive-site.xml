@@ -24,7 +24,7 @@
   </property>
 
   <property>
-    <name>metastore.warehouse.external.dir</name>
+    <name>hive.metastore.warehouse.external.dir</name>
     <value>hdfs://namenode:9000/user/hive/external_warehouse</value>
     <description></description>
   </property>

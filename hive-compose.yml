@@ -40,10 +40,11 @@ services:
         - type: bind
           source: hive/conf/hive-site.xml
           target: /opt/hive/conf/hive-site.xml
+        # maybe needless(we always access hive by hs2)
         - type: bind
           source: hive/conf/core-site.xml
           target: /opt/hadoop/etc/hadoop/core-site.xml
-
+  # hiveserver2 should have all configs 
   hiveserver2:
     image: apache/hive:${HIVE_VERSION}
     depends_on:
@@ -62,6 +63,13 @@ services:
       - type: bind
         source: hive/postgresql-42.5.1.jar
         target: /opt/hive/lib/postgres.jar
+      - type: bind
+        source: hive/conf/hive-site.xml
+        target: /opt/hive/conf/hive-site.xml
+      # for create db(hdfs dir) permission issue `/tmp/hive on HDFS should be writable. Current permissions are: rwxr-xr-x`
+      - type: bind
+        source: hive/conf/core-site.xml
+        target: /opt/hadoop/etc/hadoop/core-site.xml
 volumes:
   hive-db:
 # hive_db

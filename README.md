@@ -2,10 +2,17 @@
 
 OpenMLDB with all components and hdfs service.
 
+## Cmds
+
 ```bash
 docker-compose build <service> # build image if you modify Dockerfile
 
 docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml down -v --remove-orphans
+docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml up -d
+
+# cleanup hive parts
+docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml down postgres metastore hiveserver2 -v && \
+docker exec -it deploy-node hadoop fs -fs hdfs://namenode:9000 -rm -r -f /user/hive/ /user/iceberg/ && \
 docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml up -d
 ```
 
@@ -240,7 +247,7 @@ In compose, I set `enable.hive.support=false` in taskmanager. `--spark_conf` is 
 Create multi tables in hive by beeline, and read/write in OpenMLDB:
 
 ```bash
-beeline -u jdbc:hive2://hiveserver2:10000 -e '!run /work/test/hive_setup.hql'
+beeline -u jdbc:hive2://hiveserver2:10000 -e '!run /work/test/hive_setup.hql' TODO(hw): why basic_test.test location is local file:/? EXTERNAL_TABLE? other managed tables are in hdfs.
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/bultiin-hive.ini < test/hive.sql
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/bultiin-hive.ini < test/hive_acid.sql
 ```
@@ -268,20 +275,14 @@ We set `enable.hive.support=false` in taskmanager to avoid interference, make Ta
 
 ### Hive Catalog
 
-Cleanup only hive part:
-
-```bash
-docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml down postgres metastore -v && docker-compose2 up -d
-# If needed
-docker exec deploy-node hdfs -rm -r "/user/hive/warehouse/*" "/user/hive/external_warehouse/*" "/user/hive/iceberg_storage/*"
-```
+Cleanup only hive part see [cmds](#cmds).
 
 - Step 1: setup
 
 ```bash
 hdfs -mkdir -p /user/hive/external_warehouse # store iceberg metadata
 hdfs -mkdir -p /user/hive/iceberg_storage # store iceberg data
-hdfs -rm -r "/user/hive/iceberg_storage/*" "/user/hive/external_warehouse*"
+# hdfs -rm -r "/user/hive/iceberg_storage/*" "/user/hive/external_warehouse*"
 ```
 
 Spark and Hive both can create iceberg tables in hive catalog. To make sure that OpenMLDB can create iceberg table, we use Spark to create.
@@ -334,7 +335,7 @@ Location should be `Location                hdfs://namenode:9000/user/hive/icebe
 test OpenMLDB <-> iceberg(hive catalog): `test/iceberg-hive.sql`
 
 ```bash
-/work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/ice_hive.ini < test/ice_hive_test.sql
+/work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/ice_hive.ini < /work/test/ice_hive_test.sql
 ```
 
 - Step 3: validate
@@ -354,14 +355,14 @@ And Hive can read them too, EXTERNAL_TABLE with table_type ICEBERG. But before H
 
 ### Hadoop Catalog
 
-test/ice_hadoop.ini, hadoop catalog dir is `hdfs://namenode:9000/user/hadoop_iceberg/`.
+test/ice_hadoop.ini, hadoop catalog dir is `hdfs://namenode:9000/user/iceberg/hadoop/`.
 
 - Step 1: create iceberg table by spark
 
 ```bash
 source /work/test/funcs.sh
-hdfs -mkdir -p /user/hadoop_iceberg/
-hdfs -rm -r "/user/hadoop_iceberg/*"
+hdfs -mkdir -p /user/iceberg/hadoop
+# hdfs -rm -r "/user/hadoop_iceberg/*" # rm if needs
 $SPARK_HOME/bin/spark-sql --properties-file=/work/test/ice_hadoop.ini -c spark.openmldb.sparksql=true < /work/test/ice_hadoop_setup.sql
 # SHOW NAMESPACES FROM hadoop_prod; -- can know prod namespace(database)
 ```
@@ -373,7 +374,8 @@ $SPARK_HOME/bin/spark-sql --properties-file=/work/test/ice_hadoop.ini -c spark.o
 ```
 
 - Step 3: validate
-You can check it on hdfs: `hdfs -ls /user/hadoop_iceberg/nyc/`, or use Spark to read iceberg tables.
+
+You can check it on hdfs: `hdfs -ls /user/iceberg/hadoop/nyc/`, or use Spark to read iceberg tables.
 
 ### Rest Catalog
 
@@ -393,7 +395,7 @@ $SPARK_HOME/bin/spark-sql --properties-file=/work/test/ice_hive.ini -c spark.ope
 
 ### Session Catalog
 
-Session catalog is used for merge. If we use hive_prod, you can get db in hive, but **no hive tables**, only iceberg tables. Let's test it:
+Session catalog is used for merge. If we use hive_prod, you can get db in hive, but **no hive tables**, only iceberg tables. Let's test it, and we use submit to make sure the offline job can read.
 
 ```bash
 # hive catalog setup
