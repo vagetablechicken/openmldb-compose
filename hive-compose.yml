@@ -30,7 +30,7 @@ services:
                      -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/metastore_db
                      -Djavax.jdo.option.ConnectionUserName=hive
                      -Djavax.jdo.option.ConnectionPassword=password'
-      HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
+      # HIVE_CUSTOM_CONF_DIR: /hive_custom_conf # can't replace hive-site.xml
     ports:
         - '9083:9083'
     volumes:
@@ -38,8 +38,8 @@ services:
           source: hive/postgresql-42.5.1.jar
           target: /opt/hive/lib/postgres.jar
         - type: bind
-          source: hive/conf
-          target: /hive_custom_conf
+          source: hive/conf/hive-site.xml
+          target: /opt/hive/conf/hive-site.xml
         - type: bind
           source: hive/conf/core-site.xml
           target: /opt/hadoop/etc/hadoop/core-site.xml
@@ -62,12 +62,6 @@ services:
       - type: bind
         source: hive/postgresql-42.5.1.jar
         target: /opt/hive/lib/postgres.jar
-      - type: bind
-        source: hive/conf
-        target: /hive_custom_conf
-      - type: bind
-        source: hive/conf/core-site.xml
-        target: /opt/hadoop/etc/hadoop/core-site.xml
 volumes:
   hive-db:
 # hive_db

@@ -1,0 +1,22 @@
+version: '3'
+services:
+  # https://hub.docker.com/r/tabulario/iceberg-rest and pr 43, can't use origin image
+  # use config to connect rest service
+  # spark.sql.catalog.rest                    org.apache.iceberg.spark.SparkCatalog
+  # spark.sql.catalog.rest.catalog-impl       org.apache.iceberg.rest.RESTCatalog
+  # spark.sql.catalog.rest.uri                http://0.0.0.0:8181/
+  iceberg-rest:
+    image: iceberg-rest-hive-patch
+    container_name: iceberg-rest
+    build:
+      context: ./iceberg-rest-image
+    restart: always
+    environment: # __ means -
+      - CATALOG_CATALOG__IMPL=org.apache.iceberg.hive.HiveCatalog
+      - CATALOG_URI=thrift://metastore:9083
+    depends_on:
+      - metastore
+networks:
+  default:
+    name: ${NETWORK_NAME}
+    external: true

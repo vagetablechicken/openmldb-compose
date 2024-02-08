@@ -6,19 +6,13 @@ spark = pyspark.sql.SparkSession.builder \
     .enableHiveSupport() \
     .getOrCreate()
 
-# .config("spark.hive.metastore.client.capability.check", "false") 
 spark.sparkContext.setLogLevel("INFO")
 configurations = spark.sparkContext.getConf().getAll()
 for item in configurations:
     print(item)
 
 spark.sql("show databases").show()
-# spark.sql("show tables").show()
 
-# spark.sql("set hive.metastore.client.capability.check=false")
-# spark.sql("set hive.txn.manager=org.apache.hadoop.hive.ql.lockmgr.DbTxnManager;")
-# spark.sql("set hive.support.concurrency=true;")
-# spark.sql("select * from db.hive_insert_only_parquet").show()
 spark.sql("drop database if exists pyspark_db cascade")
 spark.sql("create database pyspark_db")
 spark.sql("drop table if exists pyspark_db.pyspark_table")

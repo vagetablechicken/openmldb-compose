@@ -120,20 +120,6 @@ services:
       mode: replicated
       replicas: 1
 
-  # https://hub.docker.com/r/tabulario/iceberg-rest
-  # use config to connect rest service
-  # spark.sql.catalog.rest                    org.apache.iceberg.spark.SparkCatalog
-  # spark.sql.catalog.rest.catalog-impl       org.apache.iceberg.rest.RESTCatalog
-  # spark.sql.catalog.rest.uri                http://0.0.0.0:8181/
-  iceberg-rest:
-    image: tabulario/iceberg-rest:latest
-    container_name: iceberg-rest
-    environment: # __ means -
-      - CATALOG_CATALOG__IMPL=org.apache.iceberg.hive.HiveCatalog
-      - CATALOG_URI=thrift://metastore:9083
-    depends_on:
-      - metastore
-
 networks:
   default:
     name: ${NETWORK_NAME}

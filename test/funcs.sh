@@ -54,5 +54,14 @@ tm1() {
 }
 
 rm_spark() {
+  # function arg check
+  if [ "$#" -lt 1 ]; then
+    echo "rm_spark <ssh-command>"
+    return 1
+  fi
   "$@" "rm -rf /work/openmldb/spark && ls -l /work/openmldb/spark"
+}
+
+hdfs() {
+  hadoop fs -fs hdfs://namenode:9000 "$@"
 }
