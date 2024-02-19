@@ -7,3 +7,4 @@ additions/
 test/java/target/
 test/scala/project/
 test/scala/target/
+iceberg-rest-image/bin/

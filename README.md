@@ -4,16 +4,17 @@ OpenMLDB with all components and hdfs service.
 
 ## Cmds
 
+Choose services with profile. Use env in `.env`.
+
 ```bash
 docker-compose build <service> # build image if you modify Dockerfile
-
-docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml down -v --remove-orphans
-docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml up -d
+COMPOSE_PROFILES=hadoop,hive,rest docker-compose2 down -v --remove-orphans
+COMPOSE_PROFILES=hadoop,hive,rest docker-compose2 up -d
 
 # cleanup hive parts
-docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml down postgres metastore hiveserver2 -v && \
+docker-compose2 down postgres metastore hiveserver2 -v && \
 docker exec -it deploy-node hadoop fs -fs hdfs://namenode:9000 -rm -r -f /user/hive/ /user/iceberg/ && \
-docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml up -d
+COMPOSE_PROFILES=hadoop,hive,rest docker-compose2 up -d
 ```
 
 cleanup storage:
@@ -22,48 +23,50 @@ cleanup storage:
 docker volume ls | grep openmldb-compose | awk '{print$2}' | xargs docker volume rm
 ```
 
+Legacy compose files `xx-compose.yml` are not used, but you can use them to start single service.
+
 ## Compose
 
 You can do anything in deploy-node. In deploy-node, run hadoop or beeline, no need for conf in `$HADOOP_HOME` or `$HIVE_HOME`.
 
-`docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml -f compose.yml ps`
+`docker-compose2 ps`
 
 ### Hadoop
 
-In `hadoop-compose.yml`, use image `bde2020/hadoop...`, can't update hadoop easily. But we don't need to change it frequently. Hive 4.0.0 can use hadoop 3.3.6.
+In HADOOP profile parts(or you can check `hadoop-compose.yml`), I use image `bde2020/hadoop...`, not offical image, can't update hadoop version easily. But we don't need to change it frequently. Hive 4.0.0 can use hadoop 3.3.6.
 
-Hadoop is simple, so you can access it just by url, like `hdfs://namenode:9000/`. So spark can access it without any hadoop config.
+Hadoop is simple, so you can access it just by url, like `hdfs://namenode:9000/`. Spark can access it without any hadoop config, just needs url(see `deploy-node/taskmanager.properties.template`).
 
 You can use `hadoop fs -fs hdfs://namenode:9000 ...` to debug on hdfs, or use help func `hdfs`. You can prepare all data files in `test/data`, and `bash /work/test/hdfs.sh` to upload all to `hdfs://../user/test`.
 
 ### Hive
 
-Can't use <https://github.com/apache/hive/blob/master/packaging/src/docker/docker-compose.yml> directly, need to set warehouse to hdfs path(not local path), and use postgres.
+Can't use <https://github.com/apache/hive/blob/master/packaging/src/docker/docker-compose.yml> directly, cuz we need to a public hive service. So I want to set warehouse to hdfs path(not local path), and use postgres.
 But hive will use `- warehouse:/opt/hive/data/warehouse` to store table, and can't read hive-site.xml in `HIVE_CUSTOM_CONF_DIR`. So I replace `hive-site.xml`, add `core-site.xml` and postgre jar.
 
-Create hive env only: `docker-compose2 --env-file compose.env -f hadoop-compose.yml -f hive-compose.yml up -d`
+Create hive env only: `COMPOSE_PROFILES=hadoop,hive docker-compose2 up -d`.
 
-Debug postegre: `docker exec -it postgres psql metastore_db -U hive`
+Debug postegre: `docker exec -it postgres psql metastore_db -U hive`.
 
-Debug hive: `docker exec -it hiveserver2 beeline -u 'jdbc:hive2://hiveserver2:10000/'`
+Debug hive: `docker exec -it hiveserver2 beeline -u 'jdbc:hive2://hiveserver2:10000/'`.
 
-If you use beeline, just need the url and the executable: `beeline -u jdbc:hive2://hiveserver2:10000/`. No extra conf is needed.
+If you use beeline, just need the url and the executable: `beeline -u jdbc:hive2://hiveserver2:10000/`. No extra conf(hive-site.xml or else) is needed. Service `hiveserver2` will help us, so `hiveserver2` needs full configs.
 
-Spark-shell will try to use hive to be built-in catalog, if has hive dependencies, even no hive conf, see **the logic in `org.apache.spark.repl.Main.createSparkSession()`**. In spark-shell, you can see `INFO Main: Created Spark session with Hive support` by default.
+`spark-shell` will try to use hive to be built-in catalog, if has hive dependencies, even no hive conf, see **the logic in `org.apache.spark.repl.Main.createSparkSession()`**. In spark-shell, you can see `INFO Main: Created Spark session with Hive support` by default.
 
-And spark-sql can't disable hive catalog by config `spark.sql.catalogImplementation=in-memory`, it always loads hive as built-in catalog. Ridiculous! So we can't check iceberg config about session catalog. spark-sql always can read hive databases in spark_catalog.
+And `spark-sql` can't disable hive catalog by config `spark.sql.catalogImplementation=in-memory`, it always loads hive as built-in catalog. Ridiculous! So we can't use `spark-sql` to check about hive. It will mislead us.
 
-Pyspark and spark-submit will use in-memory catalog by default.** But OpenMLDB TaskManager will add config `spark.sql.catalogImplementation=hive` for OpenMLDB offline job when submit job, if we have `enable.hive.support`(default is true).
+Pyspark and `spark-submit` will use in-memory catalog by default.** But OpenMLDB TaskManager will add config `spark.sql.catalogImplementation=hive` for OpenMLDB offline job when submit job, if we have `enable.hive.support`(default is true). So I set `enable.hive.support=false` in `deploy-node/taskmanager.properties.template`, I can set what I want in Spark `--conf` or OpenMLDB `--spark_conf`. More clear.
 
-Spark 3.2.1 use hive metastore >=2.3.9 by default. Generally speaking, we can read hive >= 2.3.9. So hive-4.0.0-beta-1 metastore service can be used.
+Spark 3.2.1 use Hive metastore >=2.3.9 by default. Generally speaking, we can read Hive >= 2.3.9. So hive-4.0.0-beta-1 metastore service can be used. And it has iceberg depends, we can use iceberg in hive directly.
 
-TODO: spark > 2.3 can read/write acid hive table? <https://issues.apache.org/jira/browse/SPARK-15348>.
+TODO: spark > 2.3 can read/write acid Hive table? <https://issues.apache.org/jira/browse/SPARK-15348>. But as I tested, it can't read acid table.
 
 ### Offline test methods
 
-So use Pyspark or submit spark job directly. Pyspark 3.2.1 is old, doesn't support some useful features.
+As I said above, `spark-shell` and `spark-job` have some disadvantages. Use Pyspark or submit spark job directly. Pyspark 3.2.1 is old, doesn't support some useful features. Submitting job is more complex, you need to package your code and submit it, but it's the freest way to debug.
 
-Pyspark sample: `python3 /work/test/pyspark.py`
+Pyspark sample: `python3 /work/test/pyspark.py`.
 
 Offline job way:
 
@@ -75,8 +78,8 @@ Offline job way:
 Some tips:
 
 ```bash
-$SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow --properties-file /work/test/sparksql.ini /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW NAMESPACES FROM hive_prod;" # error if no hive_prod config
-$SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow --properties-file /work/test/sparksql.ini /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW NAMESPACES;" # no hive databases if just hive_prod, and no changes even add session catalog
+$SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow --properties-file /work/test/sparksql.ini /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW NAMESPACES FROM hive_prod;" # error if no hive_prod config of iceberg
+$SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow --properties-file /work/test/sparksql.ini /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW NAMESPACES;" # no hive databases if just hive_prod, cuz spark catalog is in-memory(not hive catalog)
 ```
 
 Spark v3.5.0:
@@ -155,7 +158,7 @@ show databases; # one `default` db
 
 ## Debug Tips
 
-### hive in spark log
+### hive in Spark log
 
 To debug OpenMLDB offline jobs, we check the offline job log.
 
@@ -180,7 +183,7 @@ No Hive related logs above. When `enable.hive.support=true`, it'll be:
 24/02/04 06:18:29 INFO HiveMetaStore: 0: Opening raw store with implementation class:org.apache.hadoop.hive.metastore.ObjectStore
 ```
 
-**We need more than a metastore uri to use spark read/write hive.** Spark needs postgresql configs and maybe more. For simplicity, I use hive-site.xml, copy `hive-site.xml` to spark conf dir, so that Spark on deploy-node and taskmanager containers(deploy spark will copy the conf) can read the conf.
+**We need more than a metastore uri to use spark read/write hive.** Spark needs postgresql configs and maybe more. For simplicity, I copy `hive-site.xml` to spark conf dir, so that Spark on deploy-node and taskmanager containers(deploy spark will copy the conf) can read the conf.
 
 And you should check keyword `HiveConf` in log to know if session use hive as built-in catalog.
 
@@ -218,6 +221,8 @@ Hdfs is simple, I haven't met any problems.
 echo stat | nc openmldb-compose-zk-1 2181
 ```
 
+- Check OpenMLDB cluster by openmldb_tool.
+
 - Test OpenMLDB <-> Hadoop:
 
 ```bash
@@ -230,27 +235,23 @@ You can check it on hdfs: `echo 'spark.read.option("header", "true").csv("hdfs:/
 
 OpenMLDB Spark doesn't have pyspark env, I have installed pyspark in deploy-node. But pyspark 3.2.1 has some limitations.
 
-OpenMLDB Spark to hive needs hive conf, cuz it use metastore, not hiveserver2 jdbc. You can get hive metadata by just run `spark-shell/spark-sql` with metastore uri arg. `spark.hadoop.hive.metastore.uris` and `spark.hive.metastore.uris` both work. `spark.hadoop.hive.metastore.uris` is recommended?
+OpenMLDB Spark to hive needs hive conf, it use metastore, not hiveserver2 jdbc. You can get hive metadata by just run `spark-shell/spark-sql` with metastore uri arg. `spark.hadoop.hive.metastore.uris` and `spark.hive.metastore.uris` both work. `spark.hadoop.hive.metastore.uris` is recommended?
 
 Only have uris now, just see metadata, select(even no postgresql jar), but can't create table. If you want, you needs to config warehouse and more(just metastore.uris and warehouse can't work). For simplicity, **I use hive-site.xml**. Any job can start without hive conf options, log shows it loads hive-site.xml in `$HIVE_HOME/conf`. But if `spark.sql.catalogImplementation=in-memory`, it won't have `HiveConf` log.
 
-```log
-24/02/02 08:25:42 INFO HiveConf: Found configuration file file:/work/openmldb/spark-3.2.1-bin-openmldbspark/conf/hive-site.xml
-```
-
 **You can't create hive table with remote location in spark sql, `USING hive` only creates table in local warehouse(`pwd`/spark-warehouse). Use dataframe save to create, or create in hive client.**
 
-So when we have hive-site.xml and postgresql jar, Spark in anywhere can read and write hive.
-
-In compose, I set `enable.hive.support=false` in taskmanager. `--spark_conf` is the last conf. If we don't want hive session catalog to be built-in catalog, we can set `spark.sql.catalogImplementation=in-memory` to use in-memory catalog.
+So when we have hive-site.xml and postgresql jar in Spark conf, we can read and write hive by set `spark.sql.catalogImplementation`. If we don't want hive session catalog to be built-in catalog, we can set `spark.sql.catalogImplementation=in-memory` to use in-memory catalog to make it clear.
 
 Create multi tables in hive by beeline, and read/write in OpenMLDB:
 
 ```bash
-beeline -u jdbc:hive2://hiveserver2:10000 -e '!run /work/test/hive_setup.hql' TODO(hw): why basic_test.test location is local file:/? EXTERNAL_TABLE? other managed tables are in hdfs.
+beeline -u jdbc:hive2://hiveserver2:10000 -e '!run /work/test/hive_setup.hql'
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/bultiin-hive.ini < test/hive.sql
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/bultiin-hive.ini < test/hive_acid.sql
 ```
+
+- Note, I create non-acid table `test`(external tables), acid tables(full acid and insert-only, all managed tables). As I know, hive can't create a managed table without transactional.
 
 `test/hive.sql` will load from hive, and write to hive, check hive table `basic_test.openmldb_write` by `beeline -u jdbc:hive2://hiveserver2:10000 -e "select * from basic_test.openmldb_write;"`
 
@@ -260,7 +261,7 @@ And hive table location should be `hdfs://namenode:9000/user/hive/warehouse`. (h
 
 ### Iceberg Test
 
-Need spark iceberg jars and spark configs. Official doc is <https://iceberg.apache.org/spark-quickstart/>. If version < 0.8.5. download jars from <https://iceberg.apache.org/releases/>. And need iceberg-hive-runtime <https://iceberg.apache.org/docs/latest/hive/> to use iceberg hive catalog, download iceberg-hive-runtime.
+Test needs spark iceberg jars and spark configs. Official doc is <https://iceberg.apache.org/spark-quickstart/>. If version < 0.8.5. download jars from <https://iceberg.apache.org/releases/>. And need iceberg-hive-runtime <https://iceberg.apache.org/docs/latest/hive/> to use iceberg hive catalog, download iceberg-hive-runtime.
 
 ```bash
 wget https://search.maven.org/remotecontent?filepath=org/apache/iceberg/iceberg-spark-runtime-3.2_2.12/1.4.3/iceberg-spark-runtime-3.2_2.12-1.4.3.jar
@@ -273,7 +274,7 @@ If download slowly, download them from <https://developer.aliyun.com/mvn/search>
 
 We set `enable.hive.support=false` in taskmanager to avoid interference, make TaskManager and manual submit to use the same spark conf. Switch mode by spark conf `spark.sql.catalogImplementation`.
 
-### Hive Catalog
+#### Hive Catalog
 
 Cleanup only hive part see [cmds](#cmds).
 
@@ -351,9 +352,9 @@ SELECT * FROM hive_prod.nyc.taxis_out;
 
 You can see taxis_out has data, just 2 rows(in test, we just write vendor_id=1 to taxis_out).
 
-And Hive can read them too, EXTERNAL_TABLE with table_type ICEBERG. But before Hive read, Spark should `ALTER TABLE hive_prod.nyc.taxis SET TBLPROPERTIES ('engine.hive.enabled'='true');`, ref <https://github.com/apache/iceberg/issues/1883>.(don't why no effect if set in Hive, should use Spark to set)
+And Hive can read them too, EXTERNAL_TABLE with table_type ICEBERG. But before Hive read, Spark should `ALTER TABLE hive_prod.nyc.taxis SET TBLPROPERTIES ('engine.hive.enabled'='true');`, ref <https://github.com/apache/iceberg/issues/1883>.(I don't know why no effect if set in Hive, should use Spark to set)
 
-### Hadoop Catalog
+#### Hadoop Catalog
 
 test/ice_hadoop.ini, hadoop catalog dir is `hdfs://namenode:9000/user/iceberg/hadoop/`.
 
@@ -377,7 +378,7 @@ $SPARK_HOME/bin/spark-sql --properties-file=/work/test/ice_hadoop.ini -c spark.o
 
 You can check it on hdfs: `hdfs -ls /user/iceberg/hadoop/nyc/`, or use Spark to read iceberg tables.
 
-### Rest Catalog
+#### Rest Catalog
 
 Rest catalog service can't use the docker image iceberg-rest, cuz it needs hive patch, merge <https://github.com/tabular-io/iceberg-rest-image> and hive support <https://github.com/tabular-io/iceberg-rest-image/pull/43>. And it may fail when build iceberg-rest image based on zulu-openjdk:17 and special network, so I change the image and gradle mirrors.
 
@@ -393,7 +394,7 @@ $SPARK_HOME/bin/spark-sql --properties-file=/work/test/ice_hive.ini -c spark.ope
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/ice_rest.ini < /work/test/ice_rest_test.sql
 ```
 
-### Session Catalog
+#### Session Catalog
 
 Session catalog is used for merge. If we use hive_prod, you can get db in hive, but **no hive tables**, only iceberg tables. Let's test it, and we use submit to make sure the offline job can read.
 
@@ -406,16 +407,16 @@ beeline -u jdbc:hive2://hiveserver2:10000 -e '!run /work/test/hive_setup.hql'
 
 # select iceberg tables
 $SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow --properties-file /work/test/ice_hive.ini -c spark.openmldb.sparksql=true /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW TABLES FROM hive_prod.nyc;"
-# can't select any table(iceberg)
+# can't select any table which not in iceberg format
 $SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow --properties-file /work/test/ice_hive.ini -c spark.openmldb.sparksql=true /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW TABLES FROM hive_prod.basic_test;"
 ```
 
-And if set `spark.sql.catalogImplementation=hive`, we can get all metadata in hive. But if select the iceberg table in hive built-in catalog, got error `Caused by: java.lang.InstantiationException`.
+And if set `spark.sql.catalogImplementation=hive`, we can get all metadata in hive. But if **select the iceberg table in hive built-in catalog**, got error `Caused by: java.lang.InstantiationException`.
 
 ```bash
 # select iceberg tables
 $SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow -c spark.openmldb.sparksql=true -c spark.sql.catalogImplementation=hive /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SHOW TABLES FROM nyc;"
-# exception
+# exception java.lang.RuntimeException: java.lang.InstantiationException
 $SPARK_HOME/bin/spark-submit --master local --class com._4paradigm.openmldb.batchjob.RunBatchAndShow -c spark.openmldb.sparksql=true -c spark.sql.catalogImplementation=hive /work/openmldb/taskmanager/lib/openmldb-batchjob-*.jar "SELECT * FROM nyc.taxis;"
 ```
 

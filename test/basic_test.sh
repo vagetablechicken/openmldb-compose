@@ -8,6 +8,7 @@ echo "openmldb test"
 echo stat | nc openmldb-compose-zk-1 2181
 openmldb_tool -c openmldb-compose-zk-1:2181/openmldb status --conn
 openmldb_tool -c openmldb-compose-zk-1:2181/openmldb inspect
+
 echo "<-> hadoop"
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false < test/hadoop.sql
 echo 'spark.read.option("header", "true").csv("hdfs://namenode:9000/tmp/openmldb-out").show()' | $SPARK_HOME/bin/spark-shell
