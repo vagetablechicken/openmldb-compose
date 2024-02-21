@@ -14,7 +14,7 @@ echo "<-> hadoop"
 echo 'spark.read.option("header", "true").csv("hdfs://namenode:9000/tmp/openmldb-out").show()' | $SPARK_HOME/bin/spark-shell
 
 echo "<-> hive"
-beeline -u jdbc:hive2://hiveserver2:10000 -e "!run /work/test/hive_setup.hql"
+beeline -u jdbc:hive2://hiveserver2:10000 -e '!run /work/test/hive_setup.hql'
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/bultiin-hive.ini < test/hive.sql
 beeline -u jdbc:hive2://hiveserver2:10000 -e "select * from basic_test.openmldb_write;"
 /work/openmldb/sbin/openmldb-cli.sh --interactive=false --spark_conf /work/test/bultiin-hive.ini < test/hive_acid.sql

@@ -60,7 +60,7 @@ Pyspark and `spark-submit` will use in-memory catalog by default.** But OpenMLDB
 
 Spark 3.2.1 use Hive metastore >=2.3.9 by default. Generally speaking, we can read Hive >= 2.3.9. So hive-4.0.0-beta-1 metastore service can be used. And it has iceberg depends, we can use iceberg in hive directly.
 
-TODO: spark > 2.3 can read/write acid Hive table? <https://issues.apache.org/jira/browse/SPARK-15348>. But as I tested, it can't read acid table.
+TODO: spark > 2.3 can read/write acid Hive table? <https://issues.apache.org/jira/browse/SPARK-15348>. But as I tested, ospark 3.2.1 can't read acid table.
 
 ### Offline test methods
 
@@ -99,7 +99,7 @@ Java and scala cvt troubles in java test app, better to use scala. But sbt netwo
 # in host, not deploy-node
 sbt package
 mvn package
-
+# in deploy-node
 $SPARK_HOME/bin/spark-submit --class "SimpleApp" \
   --master local[4] \
   -c spark.openmldb.sparksql=true \
@@ -157,6 +157,14 @@ show databases; # one `default` db
 ```
 
 ## Debug Tips
+
+### Some cmds
+
+If you want to do some simple test:
+
+```bash
+$SPARK_HOME/bin/spark-sql -c spark.openmldb.sparksql=true
+```
 
 ### hive in Spark log
 
@@ -469,6 +477,46 @@ so still 2.3.9.
 spark 3.5.0 can set to 3.1.3, spark 3.2.1 set to 3.1.2 <https://spark.apache.org/docs/3.5.0/sql-data-sources-hive-tables.html#interacting-with-different-versions-of-hive-metastore>
 
 bin/spark-sql -c spark.openmldb.sparksql=true -c spark.sql.hive.metastore.version=3.1.3 -c spark.sql.hive.metastore.jars=maven -c spark.sql.warehouse.dir=hdfs://namenode:19000/user/hive/warehouse -c spark.hadoop.hive.metastore.uris=thrift://hive-metastore:9083
+
+spark-acid test:
+current is 0.6.0, but haven't upload to public repo. and scala is 2.11, just test 0.4.0, upgrade later.
+load hive bulti-in catalog automatically
+./spark-shell --packages qubole:spark-acid:0.4.0-s_2.11 -c spark.openmldb.sparksql=true
+failed
+
+may need to build spark-acid, even latest version 0.6.0 is 2020, too old?
+
+hive beeline can read, but spark can't read table(empty but exists).
+
+spark desc table:
+
+```sql
+key                     int
+value                   string
+
+# Detailed Table Information
+Database                basic_test
+Table                   acid
+Owner                   hive
+Created Time            Wed Feb 21 09:17:39 UTC 2024
+Last Access             UNKNOWN
+Created By              Spark 2.2 or prior
+Type                    MANAGED
+Provider                hive
+Table Properties        [bucketing_version=2, numFilesErasureCoded=0, transactional=true, transactional_properties=default, transient_lastDdlTime=1708507064]
+Statistics              718 bytes, 3 rows
+Location                hdfs://namenode:9000/user/hive/warehouse/basic_test.db/acid
+Serde Library           org.apache.hadoop.hive.ql.io.orc.OrcSerde
+InputFormat             org.apache.hadoop.hive.ql.io.orc.OrcInputFormat
+OutputFormat            org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat
+Storage Properties      [serialization.format=1]
+Partition Provider      Catalog
+```
+
+table compaction is async op `alter table basic_test.acid COMPACT 'major';`, `SHOW COMPACTIONS;` in beeline shows. And stuck on initiated state.
+
+Hive Warehouse Connector (HWC) securely accesses Hive-managed (ACID Tables) from Spark. You need to use HWC software to query Apache Hive-managed tables from Apache Spark.
+Can use this one?
 
 ## Thanks
 
