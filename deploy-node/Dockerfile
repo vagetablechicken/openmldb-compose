@@ -1,4 +1,5 @@
-FROM 4pdosc/openmldb:0.8.4
+ARG DEPLOY_NODE_IMAGE=4pdosc/openmldb:0.8.5
+FROM ${DEPLOY_NODE_IMAGE}
 # don't build in here, build in root dir
 COPY ssh-keys/ /keys/
 ADD additions /additions
@@ -13,9 +14,9 @@ RUN mkdir -p /root/.ssh/ && touch /root/.ssh/config && chmod 600 /root/.ssh/conf
 
 RUN echo "set mouse-=a" >> ~/.vimrc
 
-# add hadoop and hive client
+# add hadoop and hive client, hadoop is stable
 ENV HADOOP_VERSION=3.3.6
-ENV HIVE_VERSION=4.0.0-beta-1
+ARG HIVE_VERSION=4.0.0-beta-1
 
 RUN if [ !-f "/additions/hadoop-$HADOOP_VERSION.tar.gz" ] ; then curl -L https://mirror.sjtu.edu.cn/apache/hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz -o /tmp/hadoop.tar.gz ; else cp /additions/hadoop-$HADOOP_VERSION.tar.gz /tmp/hadoop.tar.gz ; fi
 RUN if [ !-f "/additions/apache-hive-$HIVE_VERSION-bin.tar.gz" ] ; then curl -L https://mirror.sjtu.edu.cn/apache/hive/hive-$HIVE_VERSION/apache-hive-$HIVE_VERSION-bin.tar.gz -o /tmp/hive.tar.gz ; else cp /additions/apache-hive-$HIVE_VERSION-bin.tar.gz /tmp/hive.tar.gz ; fi
