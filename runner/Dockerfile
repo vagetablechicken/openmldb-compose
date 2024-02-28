@@ -1,4 +1,6 @@
 FROM openjdk:11.0.13-jre-slim-bullseye
+# FROM openjdk:23-slim-bullseye if you want to test higher java, don't forget change RUNNER_JAVA_HOME in openmldb-env.sh
+
 # just runner machines, support sshd, just root user with openmldb docker user root, sbin can't support different user name
 
 EXPOSE 22

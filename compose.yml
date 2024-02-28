@@ -7,6 +7,9 @@ services:
     image: openmldb-deploy-node
     build:
       context: ./
+      args:
+        DEPLOY_NODE_IMAGE: ${DEPLOY_NODE_IMAGE}
+        HIVE_VERSION: ${HIVE_VERSION}
       dockerfile: deploy-node/Dockerfile
     restart: always
     tty: true
@@ -33,6 +36,10 @@ services:
       - type: bind
         source: ./hive/postgresql-42.5.1.jar
         target: /work/openmldb/spark/jars/postgresql-42.5.1.jar
+      # test resources mount, don't comment it
+      - type: bind
+        source: ./test/
+        target: /work/test/
 
       # if you want to use hive cli in deploy-node. Normally, you can use beeline in any container.
       # - type: bind
@@ -46,24 +53,22 @@ services:
       #   source: ./hive/postgresql-42.5.1.jar
       #   target: /opt/hive/lib/postgresql-42.5.1.jar
 
-      # test new sbin if needed
-      # - type: bind
-      #   source: ../OpenMLDB-main/release/sbin/
-      #   target: /work/openmldb/sbin/
-      # test entire release
       - type: bind
-        source: ../release-test/openmldb/
-        target: /work/openmldb/
-      # test resources mount, don't comment it
+        source: ${RELEASE_MOUNT_SRC:-/dev/null}
+        # to avoid change original release pacakge /work/openmldb
+        target: ${RELEASE_MOUNT_DST:-/dev/null}
+
       - type: bind
-        source: ./test/
-        target: /work/test/
+        source: ${EXTERNAL_MOUNT:-/dev/null}
+        target: /work/ext/
+
     command:
     - /bin/bash
     - -c
     - |
       echo "source /work/test/funcs.sh" >> ~/.bashrc
       /work/openmldb/sbin/deploy-all.sh && /work/openmldb/sbin/start-all.sh
+      echo "SET GLOBAL deploy_stats = 'on';" | /work/openmldb/sbin/openmldb-cli.sh
       tail -f /dev/null
     # no extra host option or ip option, deploy-all ok. Each container for a service joins the default network and is both reachable 
     # by other containers on that network, and discoverable by the service's name.
@@ -239,6 +244,82 @@ services:
       - CATALOG_URI=thrift://metastore:9083
     depends_on:
       - metastore
+  # 9092
+  # kafka cluster ref https://github.com/bitnami/containers/blob/7db812f196808feb47cba5f1f17377c6629c4281/bitnami/kafka/docker-compose-cluster.yml
+  kafka:
+    profiles: [kafka]
+    image: bitnami/kafka:3.5.1-debian-11-r75
+    container_name: kafka
+    # ports:
+    #   - '9092:9092'
+    # kraft mode has a lot of bugs
+    # config is /opt/bitnami/kafka/config/server.properties
+    depends_on:
+      - deploy-node # deploy-node start zookeeper on zk node
+    environment:
+      # Listeners
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # use zookeeper in openmldb cluster
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=openmldb-compose-zk-1:2181
+    # if you want to persist data
+    # volumes:
+    #   # As this is a non-root container, the mounted files and directories must have the proper permissions for the UID 1001
+    #   - './kafka_data:/bitnami/kafka'
+  kafka-connect:
+    profiles: [kafka]
+    image: bitnami/kafka:3.5.1-debian-11-r75
+    container_name: kafka-connect
+    # ports:
+    #   - '8079:8083'
+    volumes:
+      - './kafka/connect-distributed.properties:/opt/bitnami/kafka/config/connect-distributed.properties'
+      - './kafka/kafka-connect-jdbc:/opt/connectors/kafka-connect-jdbc'
+    depends_on:
+      - kafka
+    command:     
+      - /bin/bash
+      - -c
+      - |
+        /opt/bitnami/kafka/bin/connect-distributed.sh /opt/bitnami/kafka/config/connect-distributed.properties
+
+  prometheus:
+    profiles: [monitor]
+    image: prom/prometheus
+    container_name: prometheus
+    restart: always
+    volumes:
+      - ./monitor/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9093:9090 # visit your machine :9093
+
+  grafana:
+    profiles: [monitor]
+    image: grafana/grafana
+    container_name: grafana
+    restart: always
+    ports:
+      - 3003:3000 # visit 3003
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_ALLOW_ORG_CREATE=false
+      - GF_USERS_AUTO_ASSIGN_ORG=true
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_USER=true
+      - GF_AUTH_ANONYMOUS_ORG_ID=1
+    # don't depends on prometheus to avoid create datasource and dashboard again
+    command:
+      - /bin/bash
+      - -c
+      - |
+        # TODO: https://grafana.com/docs/grafana/latest/developers/http_api/create-api-tokens-for-org/
+
 volumes:
   hadoop_namenode:
   hadoop_datanode:
