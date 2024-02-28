@@ -25,6 +25,16 @@ docker volume ls | grep openmldb-compose | awk '{print$2}' | xargs docker volume
 
 Legacy compose files `xx-compose.yml` are not used, but you can use them to start single service.
 
+## Configuration
+
+`DEPLOY_NODE_IMAGE`: deploy-node image, usually update the version. You can use your own image, but it should have the same toolchain as the official image.
+
+`HIVE_VERSION`: the image of hive service and the client in deploy-node.
+
+If you want to test your own released package, set `RELEASE_MOUNT_SRC` and `RELEASE_MOUNT_DST`(==`/work/openmldb`) in `.env`.
+
+If you want to mount other dir, set `EXTERNAL_MOUNT` in `.env`. For exmaple, if you want to test python sdk(src, not the whl package), ref <https://openmldb.ai/docs/zh/main/developer/python_dev.html>, you can set `EXTERNAL_MOUNT` to your python sdk dir, then `cd /work/ext/` to run pytest.
+
 ## Compose
 
 You can do anything in deploy-node. In deploy-node, run hadoop or beeline, no need for conf in `$HADOOP_HOME` or `$HIVE_HOME`.
@@ -513,10 +523,42 @@ Storage Properties      [serialization.format=1]
 Partition Provider      Catalog
 ```
 
-table compaction is async op `alter table basic_test.acid COMPACT 'major';`, `SHOW COMPACTIONS;` in beeline shows. And stuck on initiated state.
+try compaction delta files, but table compaction is async op `alter table basic_test.acid COMPACT 'major';`, `SHOW COMPACTIONS;` in beeline shows. And stuck on initiated state.
+
+try use jdbc:
+don't forget hive catalog.
+`$SPARK_HOME/bin/spark-submit --class "SimpleApp"   --master local[4]   -c spark.openmldb.sparksql=true -c spark.sql.catalogImplementation=hive  /work/test/scala/target/scala-2.12/simple-project_2.12-1.0.jar`
 
 Hive Warehouse Connector (HWC) securely accesses Hive-managed (ACID Tables) from Spark. You need to use HWC software to query Apache Hive-managed tables from Apache Spark.
 Can use this one?
+However, we anticipate that HWC for Spark 3 will be included in the upcoming CDS 3.3 release in CDP 7.1.8. <https://community.cloudera.com/t5/Support-Questions/Spark3-connection-to-HIVE-ACID-Tables/m-p/348833>
+
+So try to read hive table by scala? not spark session.
+
+## Kafka
+
+```bash
+cd kafka
+# or cp your pacakage here
+curl -SLO https://openmldb.ai/download/kafka-connector/kafka-connect-jdbc.tgz
+tar zxf kafka-connect-jdbc.tgz
+cd ..
+COMPOSE_PROFILES=hadoop,hive,kafka docker-compose2 up -d
+```
+
+Then you can manage connector by rest api in any container. I add a performance test here for kafka connect, the performance will be better if you use a real kafka cluster, don't share hardware resources with OpenMLDB cluster, and more parrallelism.
+
+- [ ] performance test, use talking data source, and java producer. Ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>.
+
+## Prometheus + Grafana
+
+```bash
+COMPOSE_PROFILES=monitor docker-compose2 up -d
+# restart prometheus to clear old data
+COMPOSE_PROFILES=monitor docker-compose2 restart prometheus
+```
+
+Prometheus addr `http://prometheus:9090`, web should use `http://prometheus:9093`. Grafana web use `http://<your machine ip>:3003`.
 
 ## Thanks
 
@@ -527,6 +569,3 @@ Can use this one?
 <https://github.com/tabular-io/iceberg-rest-image>
 
 ## TODO
-
-- [ ] add prometheus and grafana
-- [ ] add kafka connect test, ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>. I want to add it here, cuz we may do some demo tests about performance.
