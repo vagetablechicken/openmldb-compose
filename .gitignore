@@ -1,4 +1,5 @@
 test/spark-*
+test/__pycache__/
 .vscode/
 test/apache-hive-*
 .metals/
@@ -8,3 +9,4 @@ test/java/target/
 test/scala/project/
 test/scala/target/
 iceberg-rest-image/bin/
+kafka/kafka-connect-jdbc*
