@@ -10,6 +10,9 @@ Choose services with profile. Use env in `.env`.
 docker-compose build <service> # build image if you modify Dockerfile
 COMPOSE_PROFILES=hadoop,hive,rest docker-compose2 down -v --remove-orphans
 COMPOSE_PROFILES=hadoop,hive,rest docker-compose2 up -d
+COMPOSE_PROFILES=monitor docker-compose2 up -d
+# start all services, but some profiles may need preparation.
+COMPOSE_PROFILES=all docker-compose2 up -d
 
 # cleanup hive parts
 docker-compose2 down postgres metastore hiveserver2 -v && \

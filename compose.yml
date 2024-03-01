@@ -128,7 +128,7 @@ services:
 # HADOOP profile, ref https://github.com/big-data-europe/docker-hadoop/blob/master/hadoop.env
   # hdfs://namenode:9000
   namenode:
-    profiles: [hadoop]
+    profiles: [hadoop, all]
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
     restart: always
@@ -143,7 +143,7 @@ services:
       - ./hadoop.env
 
   datanode:
-    profiles: [hadoop]
+    profiles: [hadoop, all]
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
     container_name: datanode
     restart: always
@@ -155,7 +155,7 @@ services:
       - ./hadoop.env
 # HIVE profile, ref https://github.com/apache/hive/blob/master/packaging/src/docker/docker-compose.yml 
   postgres:
-    profiles: [hive]
+    profiles: [hive, all]
     # The postgres:16 image uses Debian as its base, and has some issues
     image: postgres:16-alpine
     restart: unless-stopped
@@ -171,7 +171,7 @@ services:
       - hive-db:/var/lib/postgresql
   # access cmd is `psql metastore_db hive`, don't forget the database arg, otherwrise, `FATAL:  database "hive" does not exist`
   metastore:
-    profiles: [hive]
+    profiles: [hive, all]
     image: apache/hive:${HIVE_VERSION}
     depends_on:
       - postgres
@@ -201,7 +201,7 @@ services:
           target: /opt/hadoop/etc/hadoop/core-site.xml
   # hiveserver2 should have all configs 
   hiveserver2:
-    profiles: [hive]
+    profiles: [hive, all]
     image: apache/hive:${HIVE_VERSION}
     depends_on:
       - metastore
@@ -233,7 +233,7 @@ services:
   # spark.sql.catalog.rest.catalog-impl       org.apache.iceberg.rest.RESTCatalog
   # spark.sql.catalog.rest.uri                http://0.0.0.0:8181/
   iceberg-rest:
-    profiles: [rest]
+    profiles: [rest, all]
     image: iceberg-rest-hive-patch
     container_name: iceberg-rest
     build:
@@ -247,7 +247,7 @@ services:
   # 9092
   # kafka cluster ref https://github.com/bitnami/containers/blob/7db812f196808feb47cba5f1f17377c6629c4281/bitnami/kafka/docker-compose-cluster.yml
   kafka:
-    profiles: [kafka]
+    profiles: [kafka, all]
     image: bitnami/kafka:3.5.1-debian-11-r75
     container_name: kafka
     # ports:
@@ -269,7 +269,7 @@ services:
     #   # As this is a non-root container, the mounted files and directories must have the proper permissions for the UID 1001
     #   - './kafka_data:/bitnami/kafka'
   kafka-connect:
-    profiles: [kafka]
+    profiles: [kafka, all]
     image: bitnami/kafka:3.5.1-debian-11-r75
     container_name: kafka-connect
     # ports:
@@ -286,7 +286,7 @@ services:
         /opt/bitnami/kafka/bin/connect-distributed.sh /opt/bitnami/kafka/config/connect-distributed.properties
 
   prometheus:
-    profiles: [monitor]
+    profiles: [monitor, all]
     image: prom/prometheus
     container_name: prometheus
     restart: always
@@ -296,7 +296,7 @@ services:
       - 9093:9090 # visit your machine :9093
 
   grafana:
-    profiles: [monitor]
+    profiles: [monitor, all]
     image: grafana/grafana
     container_name: grafana
     restart: always
