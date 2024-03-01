@@ -53,10 +53,7 @@ services:
       #   source: ./hive/postgresql-42.5.1.jar
       #   target: /opt/hive/lib/postgresql-42.5.1.jar
 
-      - type: bind
-        source: ${RELEASE_MOUNT_SRC:-/dev/null}
-        # to avoid change original release pacakge /work/openmldb
-        target: ${RELEASE_MOUNT_DST:-/dev/null}
+      - ${RELEASE_MOUNT:-/dev/null:/dummy}
 
       - type: bind
         source: ${EXTERNAL_MOUNT:-/dev/null}
