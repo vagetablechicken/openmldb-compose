@@ -27,9 +27,11 @@ RUN tar -xzf /tmp/hadoop.tar.gz -C /opt/ && \
     rm -rf /tmp/hive.tar.gz && \
     ln -s /opt/apache-hive-$HIVE_VERSION-bin /opt/hive
 
-# JAVA_HOME in openmldb:0.8.4 is /usr/local/openjdk-11
 ENV HADOOP_HOME=/opt/hadoop
 ENV HIVE_HOME=/opt/hive
 ENV HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+ENV JAVA_HOME=/usr/local/openjdk-11
 # add to path
-ENV PATH=$PATH:$HADOOP_HOME/bin:$HIVE_HOME/bin
+ENV PATH=$PATH:$HADOOP_HOME/bin:$HIVE_HOME/bin:$JAVA_HOME/bin
+
+WORKDIR /work

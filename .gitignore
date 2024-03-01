@@ -10,3 +10,4 @@ test/scala/project/
 test/scala/target/
 iceberg-rest-image/bin/
 kafka/kafka-connect-jdbc*
+kafka/**/target/
