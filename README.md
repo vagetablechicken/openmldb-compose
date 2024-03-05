@@ -464,6 +464,10 @@ The bug we met when spark read hive acid(select * from acid_table) before:
 MetaException(message:Your client does not appear to support insert-only tables. To skip capability checks, please set metastore.client.capability.check to false. This setting can be set globally, or on the client for the current metastore session. Note that this may lead to incorrect results, data loss, undefined behavior, etc. if your client is actually incompatible. You can also specify custom client capabilities via get_table_req API.)   Description  The server encountered an unexpected condition that prevented it from fulfilling the request.   Exception   javax.servlet.ServletException: javax.servlet.ServletException: MetaException(message:Your client does not appear to support insert-only tables. To skip capability checks, please set metastore.client.capability.check to false. This setting can be set globally, or on the client for the current metastore session. Note that this may lead to incorrect results, data loss, undefined behavior, etc. if your client is actually incompatible. You can also specify custom client capabilities via get_table_req API.) (libchurl.c:935)  (seg36 slice1 172.16.10.26:4000 pid=93248) (libchurl.c:935)
 ```
 
+<https://issues.apache.org/jira/browse/SPARK-15348> shows:
+- `hive.strict.managed.tables` is true, so if it's false, spark may read acid table?
+- Spark ACID project, but it's too old now(2019)
+
 spark 3.2.1 + hive 3.1.2, acid works? iceberg hive catalog works? session catalog works?
 Hive 3 dose not support java 11, needs java 8
 
@@ -552,6 +556,12 @@ COMPOSE_PROFILES=hadoop,hive,kafka docker-compose2 up -d
 Then you can manage connector by rest api in any container. I add a performance test here for kafka connect, the performance will be better if you use a real kafka cluster, don't share hardware resources with OpenMLDB cluster, and more parrallelism.
 
 - [ ] performance test, use talking data source, and java producer. Ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>.
+
+### Tips
+
+Kafka depends on ZooKeeper, but it use the root dir `/`. If use OpenMLDB zookeeper, it's difficult to delete only kafka metadata. So I use another zookeeper service. You can recreate the whole Kafka cluster by remove kafka-zookeeper volume.
+
+If zk has some legacy metadata, may cause `Timed out while waiting to get end offsets for topic 'connect-offsets' on brokers at kafka:9092`.
 
 ## Prometheus + Grafana
 
