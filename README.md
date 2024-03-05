@@ -550,7 +550,9 @@ cd kafka
 curl -SLO https://openmldb.ai/download/kafka-connector/kafka-connect-jdbc.tgz
 tar zxf kafka-connect-jdbc.tgz
 cd ..
-COMPOSE_PROFILES=hadoop,hive,kafka docker-compose2 up -d
+docker-compose2 down kafka-zookeeper kafka kafka-connect -v
+# COMPOSE_PROFILES=hadoop,kafka
+COMPOSE_PROFILES=all docker-compose2 up -d
 ```
 
 Then you can manage connector by rest api in any container. I add a performance test here for kafka connect, the performance will be better if you use a real kafka cluster, don't share hardware resources with OpenMLDB cluster, and more parrallelism.
@@ -562,6 +564,14 @@ Then you can manage connector by rest api in any container. I add a performance 
 Kafka depends on ZooKeeper, but it use the root dir `/`. If use OpenMLDB zookeeper, it's difficult to delete only kafka metadata. So I use another zookeeper service. You can recreate the whole Kafka cluster by remove kafka-zookeeper volume.
 
 If zk has some legacy metadata, may cause `Timed out while waiting to get end offsets for topic 'connect-offsets' on brokers at kafka:9092`.
+
+### Performance Test
+
+curl http://kafka-connect:8083/connectors/schema-connector/status task only 1
+openmldb table only one time index
+python3 spark_kafka.py 16 threads write train.csv to kafka, 2 tablet thread pool 16*2, may race
+
+- [ ] check result, 03-05 18:43:xx，load avg 20 15 8
 
 ## Prometheus + Grafana
 
