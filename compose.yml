@@ -58,12 +58,18 @@ services:
       - type: bind
         source: ${EXTERNAL_MOUNT:-/dev/null}
         target: /work/ext/
-
+    ports:
+      - 4040-4049:4040-4049
     command:
     - /bin/bash
     - -c
     - |
       echo "source /work/test/funcs.sh" >> ~/.bashrc
+      tee -a ~/.bashrc << END
+      export LC_ALL=C.UTF-8
+      export LANG=C.UTF-8
+      export LANGUAGE=C.UTF-8
+      END
       /work/openmldb/sbin/deploy-all.sh && /work/openmldb/sbin/start-all.sh
       echo "SET GLOBAL deploy_stats = 'on';" | /work/openmldb/sbin/openmldb-cli.sh
       tail -f /dev/null
@@ -243,6 +249,19 @@ services:
       - metastore
   # 9092
   # kafka cluster ref https://github.com/bitnami/containers/blob/7db812f196808feb47cba5f1f17377c6629c4281/bitnami/kafka/docker-compose-cluster.yml
+  kafka-zookeeper:
+    profiles: [kafka, all]
+    image: docker.io/bitnami/zookeeper:3.9
+    container_name: kafka-zookeeper
+    # ports:
+    #   - "2181:2181"
+    volumes:
+      - "kafka_zookeeper_data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    # For error `Failed to start thread "GC Thread#0" - pthread_create failed (EPERM) for attributes`
+    security_opt:
+      - seccomp:unconfined
   kafka:
     profiles: [kafka, all]
     image: bitnami/kafka:3.5.1-debian-11-r75
@@ -251,16 +270,16 @@ services:
     #   - '9092:9092'
     # kraft mode has a lot of bugs
     # config is /opt/bitnami/kafka/config/server.properties
-    depends_on:
-      - deploy-node # deploy-node start zookeeper on zk node
     environment:
       # Listeners
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://:9092
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      # use zookeeper in openmldb cluster
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=openmldb-compose-zk-1:2181
+      # don't zookeeper in openmldb cluster, it's not good for cleanup
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=kafka-zookeeper:2181
+    depends_on:
+      - kafka-zookeeper
     # if you want to persist data
     # volumes:
     #   # As this is a non-root container, the mounted files and directories must have the proper permissions for the UID 1001
@@ -291,7 +310,7 @@ services:
       - ./monitor/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - 9093:9090 # visit your machine :9093
-
+  # TODO store cfg in volume
   grafana:
     profiles: [monitor, all]
     image: grafana/grafana
@@ -321,6 +340,7 @@ volumes:
   hadoop_namenode:
   hadoop_datanode:
   hive-db:
+  kafka_zookeeper_data:
 
 networks:
   default:
