@@ -59,7 +59,7 @@ services:
         source: ${EXTERNAL_MOUNT:-/dev/null}
         target: /work/ext/
     ports:
-      - 4040-4049:4040-4049
+      - "4040-4049"
     command:
     - /bin/bash
     - -c
@@ -266,6 +266,7 @@ services:
     profiles: [kafka, all]
     image: bitnami/kafka:3.5.1-debian-11-r75
     container_name: kafka
+    restart: always
     # ports:
     #   - '9092:9092'
     # kraft mode has a lot of bugs
@@ -288,6 +289,7 @@ services:
     profiles: [kafka, all]
     image: bitnami/kafka:3.5.1-debian-11-r75
     container_name: kafka-connect
+    restart: always
     # ports:
     #   - '8079:8083'
     volumes:
