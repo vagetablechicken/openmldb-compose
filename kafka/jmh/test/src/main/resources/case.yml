@@ -30,11 +30,11 @@ cases:
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "false"
     }
-    openmldb_ddl: "create table auto_schema(c1_int16 int16, c2_int32 int32, c3_int64 int64, c4_float float, c5_double double, c6_boolean bool, c7_string string, c8_date date, c9_timestamp timestamp)"
+    openmldb_ddl: "create table auto_schema(ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int)"
     files: 
-      - "train.csv" # file path
+      # - "train.csv" # file path
     expect:
       table: "auto_schema"
     # can't check openmldb table result cuz too large, but it's simpler if we provide the table name
-  # curl http://kafka-connect:8083/connectors/schema-connector
+  # curl http://kafka-connect:8083/connectors/schema-connector/status
   # curl -X POST http://kafka-connect:8083/connectors/schema-connector/tasks/0/restart
