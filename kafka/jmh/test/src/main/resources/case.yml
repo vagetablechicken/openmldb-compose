@@ -19,7 +19,7 @@ common_connector_conf: {
   # test db here, will be deleted before test, don't depend on the data in it.
   "connection.url": "jdbc:openmldb:///kafka_test?zk=openmldb-compose-zk-1:2181&zkPath=/openmldb"
 }
-run_case_id: "auto.schema" # run the first case by default
+run_case_id: "multi-tasks" # run the first case by default
 cases:
   - id: "auto.schema"
     append_conf: {
@@ -38,3 +38,19 @@ cases:
     # can't check openmldb table result cuz too large, but it's simpler if we provide the table name
   # curl http://kafka-connect:8083/connectors/schema-connector/status
   # curl -X POST http://kafka-connect:8083/connectors/schema-connector/tasks/0/restart
+
+  - id: "multi-tasks"
+    append_conf: {
+      "tasks.max": "64", # > thread pool size default is 24, 24*2=48
+      "topics": "auto_schema",
+      "name": "schema-connector",
+      "auto.create": "false",
+      "auto.schema": "true",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "false"
+    }
+    openmldb_ddl: "create table auto_schema(ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int)"
+    files: 
+      # - "train.csv" # file path
+    expect:
+      table: "auto_schema"
