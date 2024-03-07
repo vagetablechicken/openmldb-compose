@@ -568,20 +568,41 @@ If zk has some legacy metadata, may cause `Timed out while waiting to get end of
 ### Performance Test
 
 curl http://kafka-connect:8083/connectors/schema-connector/status task only 1
-openmldb table only one time index
-python3 spark_kafka.py 16 threads write train.csv to kafka, 2 tablet thread pool 16*2, may race
+openmldb table only one time index, replica 2 partition 8
+python3 spark_kafka.py 16 threads write train.csv to kafka, 2 tablet thread pool 16*2, may race. But kafka->openmldb cost the most, 
 
-- [ ] check result, 03-05 18:43:xx，load avg 20 15 8
+spark job time 551.363890 s(including csv to json), but it's written to kafka. only 1 kafka thread to openmldb, check tablet specific panel.
+
+put p99 of 2 tablets are ~200us, p999 3ms, max is ~300ms, avg ~90us, qps ~2.5k each tablet, total is 5k qps. Total insertion time from kafka to openmldb is ～10h。 kafka connector tasks.max==1
+
+> bthread_count: 同时存在的bthread个数
+bthread_worker_count: bthread映射至的pthread的个数。
+> https://github.com/apache/brpc/issues/137#issuecomment-348849721
+
+We can know the tablet threads
+
+topic partitions?
+
+ref brpc docs/cn/server_debugging.md
+bthread_worker_usage just 1-2 in each tablet, too small.
+
 
 ## Prometheus + Grafana
 
 ```bash
 COMPOSE_PROFILES=monitor docker-compose2 up -d
 # restart prometheus to clear old data
-COMPOSE_PROFILES=monitor docker-compose2 restart prometheus
+# but it won't clear metrics produced by servers(e.g. count metrics), be caution
+COMPOSE_PROFILES=monitor docker-compose2 down prometheus -v
 ```
 
 Prometheus addr `http://prometheus:9090`, web should use `http://prometheus:9093`. Grafana web use `http://<your machine ip>:3003`.
+
+Update prometheus config by send `SIGHUP` to process, or sending a HTTP POST request to the /-/reload. Http is better.
+
+```bash
+curl -X POST http://prometheus:9090/-/reload
+```
 
 ## Thanks
 
