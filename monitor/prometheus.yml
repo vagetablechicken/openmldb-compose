@@ -11,6 +11,7 @@ global:
 # Here it's Prometheus itself.
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  # No taskmanager metrics api for now
   - job_name: openmldb_components
     metrics_path: /brpc_metrics
     static_configs:
@@ -19,3 +20,8 @@ scrape_configs:
         - openmldb-compose-ts-2:10921
         - openmldb-compose-ns-1:7527
         - openmldb-compose-api-1:9080
+  - job_name: openmldb_exporter
+    static_configs:
+      - targets:
+        - openmldb-exporter:8000
+  # I don't care about machine physical metrics, it's just one machine in compose project, so I don't add them here. If you need, add node-exporter service.
