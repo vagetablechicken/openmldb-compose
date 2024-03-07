@@ -6,6 +6,62 @@ packages = [
     f'org.apache.spark:spark-sql-kafka-0-10_{scala_version}:{spark_version}',
     'org.apache.kafka:kafka-clients:3.2.0'
 ]
+
+from requests.exceptions import JSONDecodeError
+import requests
+def http(url, method='post', ignore=False, http_code=200, **kwargs):
+    ret = requests.request(method, url, **kwargs)
+    assert ignore or ret.status_code == http_code, f'{ret.status_code} {ret.text}'
+    try:
+        print(ret.json())
+        assert ignore or ret.json()['code'] == 0, ret.json()
+    except JSONDecodeError:
+        print("Response is not a JSON object", ret)
+
+# use apiserver for openmldb
+
+api='http://openmldb-compose-api-1:9080'
+http(f'{api}/dbs/foo', json={'mode':'online','sql':'create database if not exists kafka_test;'})
+http(f'{api}/dbs/foo', json={'mode':'online','sql':'create table if not exists kafka_test.auto_schema (ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int);'})
+http(f'{api}/dbs/foo', json={'mode':'online','sql':'truncate table kafka_test.auto_schema;'})
+http(f'{api}/dbs/foo', json={'mode':'online','sql':'select * from kafka_test.auto_schema;'})
+
+# kafka connector setup: drop topic(avoid legacy), recreate connector
+# read config from yml
+yml='jmh/test/src/main/resources/case.yml'
+import yaml
+with open(yml) as f:
+    config = yaml.safe_load(f)
+print(config)
+import os
+os.system('pip install kafka-python')
+from kafka.admin import KafkaAdminClient
+kafka_addr=config['kafka']['bootstrap.servers']
+connect_addr=config['kafka']['connect.listeners']
+admin_client = KafkaAdminClient(bootstrap_servers=[kafka_addr])
+
+id = config['run_case_id']
+
+run_case = config['cases'][0] if not id else next(filter(lambda x: x['id'] == id, config['cases']))
+topic = run_case['append_conf']['topics'] # only one
+from kafka.errors import UnknownTopicOrPartitionError
+topic_names = [topic]
+try:
+    admin_client.delete_topics(topics=topic_names)
+    print("Topic Deleted Successfully")
+except UnknownTopicOrPartitionError as e:
+    print("Topic Doesn't Exist")
+except Exception as e:
+    print(e)
+
+# create connector
+connector_conf = config['common_connector_conf']
+connector_conf.update(run_case['append_conf'])
+connector = run_case['append_conf']['name']
+print(connector, connector_conf)
+http(f'{connect_addr}/connectors/{connector}', method='delete', ignore=True)
+http(f'{connect_addr}/connectors', json={'name':connector, 'config':connector_conf}, http_code=201, ignore=True)
+
 spark = SparkSession.builder\
    .master("local[16]")\
    .config("spark.driver.memory", "16g") \
@@ -45,6 +101,6 @@ from pyspark.sql.types import StringType
 df = df.select(to_json(struct(col("*"))).alias("value")).withColumn("key", lit(None).cast(StringType()))
 df.show(truncate=False)
 df.select('key','value').write.format("kafka")\
-    .option("kafka.bootstrap.servers", "kafka:9092")\
-    .option("topic", "auto_schema")\
+    .option("kafka.bootstrap.servers", kafka_addr)\
+    .option("topic", topic)\
     .save()
