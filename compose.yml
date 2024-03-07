@@ -307,17 +307,21 @@ services:
     profiles: [monitor, all]
     image: prom/prometheus
     container_name: prometheus
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./monitor/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prome_storage:/prometheus
     ports:
       - 9093:9090 # visit your machine :9093
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-lifecycle'
   # TODO store cfg in volume
   grafana:
     profiles: [monitor, all]
     image: grafana/grafana
     container_name: grafana
-    restart: always
+    restart: unless-stopped
     ports:
       - 3003:3000 # visit 3003
     environment:
@@ -331,18 +335,33 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
       - GF_AUTH_ANONYMOUS_USER=true
       - GF_AUTH_ANONYMOUS_ORG_ID=1
+    volumes:
+      - grafana_storage:/var/lib/grafana
     # don't depends on prometheus to avoid create datasource and dashboard again
     command:
       - /bin/bash
       - -c
       - |
         # TODO: https://grafana.com/docs/grafana/latest/developers/http_api/create-api-tokens-for-org/
-
+  openmldb-exporter:
+    profiles: [monitor, all]
+    image: ghcr.io/4paradigm/openmldb-exporter
+    container_name: openmldb-exporter
+    entrypoint: /bin/bash -c
+    command:
+      - |
+        pip install openmldb==0.8.5 -i https://pypi.tuna.tsinghua.edu.cn/simple
+        /usr/local/bin/openmldb-exporter --log.level=INFO --config.zk_root=openmldb-compose-zk-1:2181 --config.zk_path=/openmldb
+    # to debug
+    # volumes:
+    #   - /home/huangwei/openmldb-exporter/openmldb_exporter:/usr/local/lib/python3.11/site-packages/openmldb_exporter
 volumes:
   hadoop_namenode:
   hadoop_datanode:
   hive-db:
   kafka_zookeeper_data:
+  prome_storage:
+  grafana_storage:
 
 networks:
   default:
