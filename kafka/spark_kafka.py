@@ -44,15 +44,29 @@ id = config['run_case_id']
 
 run_case = config['cases'][0] if not id else next(filter(lambda x: x['id'] == id, config['cases']))
 topic = run_case['append_conf']['topics'] # only one
+print(f'recreate topic {topic}')
 from kafka.errors import UnknownTopicOrPartitionError
-topic_names = [topic]
 try:
-    admin_client.delete_topics(topics=topic_names)
+    print(admin_client.delete_topics(topics=[topic]))
+    import time
+    time.sleep(3)
     print("Topic Deleted Successfully")
 except UnknownTopicOrPartitionError as e:
     print("Topic Doesn't Exist")
 except Exception as e:
     print(e)
+
+# create topic with partition num
+from kafka.admin import NewTopic
+part_num = config['kafka']['topic.partitions']
+try:
+    admin_client.create_topics(new_topics=[NewTopic(name=topic, num_partitions=part_num, replication_factor=1)], validate_only=False)
+    print("Topic Created Successfully")
+except Exception as e:
+    print(e)
+
+# delete may failed? check topic
+print(admin_client.list_topics())
 
 # create connector
 connector_conf = config['common_connector_conf']

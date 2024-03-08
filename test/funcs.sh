@@ -45,6 +45,11 @@ st() {
   openmldb_tool -c openmldb-compose-zk-1:2181/openmldb status --conn
 }
 
+sc() {
+  set -o xtrace
+  echo 'show components;' | /work/openmldb/sbin/openmldb-cli.sh
+}
+
 ins() {
   openmldb_tool -c openmldb-compose-zk-1:2181/openmldb inspect
 }

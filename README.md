@@ -580,11 +580,24 @@ bthread_worker_count: bthread映射至的pthread的个数。
 > https://github.com/apache/brpc/issues/137#issuecomment-348849721
 
 We can know the tablet threads
-
-topic partitions?
-
 ref brpc docs/cn/server_debugging.md
 bthread_worker_usage just 1-2 in each tablet, too small.
+
+default topic config is `PartitionCount: 1       ReplicationFactor: 1`
+qps 2.5k
+topic partitions? create topic with x partitions:
+
+PartitionCount: 8       ReplicationFactor: 1
+qps 13.8k each tablet, ~5 times improvement.
+
+If need kafka metrics, see https://github.com/bitnami/charts/blob/main/bitnami/kafka/README.md, enable metrics.
+
+one connector has multi tasks, every task 
+connect metric:
+partition-count	Number of topic partitions assigned to the task and which belong to the named sink connector in the worker
+
+`Setting task configurations for {} workers.` shows it 
+
 
 
 ## Prometheus + Grafana
