@@ -8,7 +8,8 @@ kafka: {
     # bootstrap.servers use the option kafka."bootstrap.servers"
     "key.serializer":"org.apache.kafka.common.serialization.StringSerializer",
     "value.serializer":"org.apache.kafka.common.serialization.StringSerializer"  
-  }
+  },
+  "topic.partitions": 8
 }
 openmldb:
   # use apiserver for admin, to avoid import jdbc jars. kafka use another option `connection.url` to connect, watch out.
