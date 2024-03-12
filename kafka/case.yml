@@ -37,8 +37,8 @@ cases:
     expect:
       table: "auto_schema"
     # can't check openmldb table result cuz too large, but it's simpler if we provide the table name
-  # curl http://kafka-connect:8083/connectors/schema-connector/status
-  # curl -X POST http://kafka-connect:8083/connectors/schema-connector/tasks/0/restart
+    # curl http://kafka-connect:8083/connectors/schema-connector/status
+    # curl -X POST http://kafka-connect:8083/connectors/schema-connector/tasks/0/restart
 
   - id: "multi-tasks"
     append_conf: {
