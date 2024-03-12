@@ -28,7 +28,7 @@ http(f'{api}/dbs/foo', json={'mode':'online','sql':'select * from kafka_test.aut
 
 # kafka connector setup: drop topic(avoid legacy), recreate connector
 # read config from yml
-yml='jmh/test/src/main/resources/case.yml'
+yml='case.yml'
 import yaml
 with open(yml) as f:
     config = yaml.safe_load(f)
