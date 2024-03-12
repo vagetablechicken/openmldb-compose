@@ -2,7 +2,7 @@ ARG DEPLOY_NODE_IMAGE=4pdosc/openmldb:0.8.5
 FROM ${DEPLOY_NODE_IMAGE}
 # don't build in here, build in root dir
 COPY ssh-keys/ /keys/
-ADD additions /additions
+COPY additions/ /additions/
 RUN if [ -f "/additions/sources.list" ] ; then cp /additions/sources.list /etc/apt/ ; fi
 RUN if [ -f "/additions/pypi.txt" ] ; then pip config set global.index-url $(cat /additions/pypi.txt) ; fi
 # hdfs tool failed, use raw hadoop binary
