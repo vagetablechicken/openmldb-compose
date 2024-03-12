@@ -44,10 +44,22 @@ id = config['run_case_id']
 
 run_case = config['cases'][0] if not id else next(filter(lambda x: x['id'] == id, config['cases']))
 topic = run_case['append_conf']['topics'] # only one
+
+connector_conf = config['common_connector_conf']
+connector_conf.update(run_case['append_conf'])
+connector = run_case['append_conf']['name']
+
+print(topic, connector, connector_conf)
+
+# delete connector first, to avoid topic delete failed
+print('delete connector')
+http(f'{connect_addr}/connectors/{connector}', method='delete', ignore=True)
+
 print(f'recreate topic {topic}')
 from kafka.errors import UnknownTopicOrPartitionError
 try:
-    print(admin_client.delete_topics(topics=[topic]))
+    # async deletion
+    dr = admin_client.delete_topics(topics=[topic])
     import time
     time.sleep(3)
     print("Topic Deleted Successfully")
@@ -65,15 +77,11 @@ try:
 except Exception as e:
     print(e)
 
-# delete may failed? check topic
-print(admin_client.list_topics())
+# check topic
+tp = admin_client.describe_topics([topic])
+print(tp)
 
-# create connector
-connector_conf = config['common_connector_conf']
-connector_conf.update(run_case['append_conf'])
-connector = run_case['append_conf']['name']
-print(connector, connector_conf)
-http(f'{connect_addr}/connectors/{connector}', method='delete', ignore=True)
+print('create connector')
 http(f'{connect_addr}/connectors', json={'name':connector, 'config':connector_conf}, http_code=201, ignore=True)
 
 spark = SparkSession.builder\

@@ -50,6 +50,11 @@ sc() {
   echo 'show components;' | /work/openmldb/sbin/openmldb-cli.sh
 }
 
+sts() {
+  set -o xtrace
+  echo 'show table status like "%";' | /work/openmldb/sbin/openmldb-cli.sh
+}
+
 ins() {
   openmldb_tool -c openmldb-compose-zk-1:2181/openmldb inspect
 }

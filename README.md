@@ -465,6 +465,7 @@ MetaException(message:Your client does not appear to support insert-only tables.
 ```
 
 <https://issues.apache.org/jira/browse/SPARK-15348> shows:
+
 - `hive.strict.managed.tables` is true, so if it's false, spark may read acid table?
 - Spark ACID project, but it's too old now(2019)
 
@@ -558,6 +559,7 @@ COMPOSE_PROFILES=all docker-compose2 up -d
 Then you can manage connector by rest api in any container. I add a performance test here for kafka connect, the performance will be better if you use a real kafka cluster, don't share hardware resources with OpenMLDB cluster, and more parrallelism.
 
 - [ ] performance test, use talking data source, and java producer. Ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>.
+- [ ] Kafka connect image, ref <https://openmldb.ai/docs/zh/main/integration/online_datasources/kafka_connector_demo.html#kubernetes>
 
 ### Tips
 
@@ -567,38 +569,61 @@ If zk has some legacy metadata, may cause `Timed out while waiting to get end of
 
 ### Performance Test
 
-curl http://kafka-connect:8083/connectors/schema-connector/status task only 1
-openmldb table only one time index, replica 2 partition 8
-python3 spark_kafka.py 16 threads write train.csv to kafka, 2 tablet thread pool 16*2, may race. But kafka->openmldb cost the most, 
+You can check `curl http://kafka-connect:8083/connectors/schema-connector/status` to know the status of the connector. But the connector write concurrency is not related to the number of connector tasks. If the topic is 1 partition, only 1 task runs. So I'll set the topic partition and task number to the same.
 
-spark job time 551.363890 s(including csv to json), but it's written to kafka. only 1 kafka thread to openmldb, check tablet specific panel.
+#### Test in one
 
-put p99 of 2 tablets are ~200us, p999 3ms, max is ~300ms, avg ~90us, qps ~2.5k each tablet, total is 5k qps. Total insertion time from kafka to openmldb is ～10h。 kafka connector tasks.max==1
+OpenMLDB: 2 tablet servers(24 threads per server), table only one time index, replica 2 partition 8.
+
+Kafka: 1 broker, 1 zookeeper, 1 connect.
+
+Src: `python3 spark_kafka.py`, 16 threads write `train.csv` to kafka, write to kafka is fast ~10min. But it'll race with `Kafka -> OpenMLDB`, the write qps in OpenMLDB will be 10min low and then higher.
+
+I don't record the max latency, it's usually in the first 10min, not the stable period.
+
+- topic 1 partition 1 replicator, connector 1 task
+
+We can know the tablet work threads, ref brpc docs/cn/server_debugging.md. `bthread_worker_usage` just 1-2 in each tablet.
+
+| total time  | qps/t | p99/t  |  p9999/t |  avg/t |  
+|---|---|---|---|---|
+| ~10h  | 2.5k | 0.2ms  | 3ms  | 0.09ms  |
+
+(xx/t: per tablet server)
+
+- topic 8 partition 1 replicator, connector 8 task
+
+| total time  | qps/t | p99/t  |  p9999/t |  avg/t |  
+|---|---|---|---|---|
+| 110min  | 15k | 0.17ms  | 3.5ms  | 0.09ms  |
+
+- topic 40 partition 1 replicator, connector 40 task
+
+| total time  | qps/t | p99/t  |  p9999/t |  avg/t |  
+|---|---|---|---|---|
+| 45min  | 43k | 0.4ms | 4ms | 0.14ms |
+
+![pqs](image-4.png)
+![p99](image-5.png)
+
+- topic 64 partition 1 replicator, connector 64 task
+
+| total time  | qps/t | p99/t  |  p9999/t |  avg/t |  
+|---|---|---|---|---|
+| 40min  | 50k | ~0.7ms  | 5ms  | 0.02ms  |
+
+![qps](image-2.png)
+![p99](image-3.png)
+
+- more than 72
+
+thread race and lock, qps <= 2.5k
 
 > bthread_count: 同时存在的bthread个数
 bthread_worker_count: bthread映射至的pthread的个数。
-> https://github.com/apache/brpc/issues/137#issuecomment-348849721
+> <https://github.com/apache/brpc/issues/137#issuecomment-348849721>
 
-We can know the tablet threads
-ref brpc docs/cn/server_debugging.md
-bthread_worker_usage just 1-2 in each tablet, too small.
-
-default topic config is `PartitionCount: 1       ReplicationFactor: 1`
-qps 2.5k
-topic partitions? create topic with x partitions:
-
-PartitionCount: 8       ReplicationFactor: 1
-qps 13.8k each tablet, ~5 times improvement.
-
-If need kafka metrics, see https://github.com/bitnami/charts/blob/main/bitnami/kafka/README.md, enable metrics.
-
-one connector has multi tasks, every task 
-connect metric:
-partition-count	Number of topic partitions assigned to the task and which belong to the named sink connector in the worker
-
-`Setting task configurations for {} workers.` shows it 
-
-
+If need kafka metrics, see <https://github.com/bitnami/charts/blob/main/bitnami/kafka/README.md>, enable metrics.
 
 ## Prometheus + Grafana
 

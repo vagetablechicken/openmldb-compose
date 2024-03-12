@@ -9,7 +9,7 @@ kafka: {
     "key.serializer":"org.apache.kafka.common.serialization.StringSerializer",
     "value.serializer":"org.apache.kafka.common.serialization.StringSerializer"  
   },
-  "topic.partitions": 8
+  "topic.partitions": 40
 }
 openmldb:
   # use apiserver for admin, to avoid import jdbc jars. kafka use another option `connection.url` to connect, watch out.
@@ -42,7 +42,7 @@ cases:
 
   - id: "multi-tasks"
     append_conf: {
-      "tasks.max": "64", # > thread pool size default is 24, 24*2=48
+      "tasks.max": "40",
       "topics": "auto_schema",
       "name": "schema-connector",
       "auto.create": "false",
