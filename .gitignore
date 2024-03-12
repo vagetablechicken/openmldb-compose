@@ -4,7 +4,6 @@ test/__pycache__/
 test/apache-hive-*
 .metals/
 .scala-build/
-additions/
 test/java/target/
 test/scala/project/
 test/scala/target/
