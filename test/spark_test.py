@@ -11,6 +11,8 @@ configurations = spark.sparkContext.getConf().getAll()
 for item in configurations:
     print(item)
 
+spark.read.option('header','true').schema('d date').csv('date.csv').show()
+exit()
 spark.sql("show databases").show()
 
 spark.sql("drop database if exists pyspark_db cascade")

@@ -287,14 +287,19 @@ services:
     #   - './kafka_data:/bitnami/kafka'
   kafka-connect:
     profiles: [kafka, all]
-    image: bitnami/kafka:3.5.1-debian-11-r75
+    image: kafka-openmldb-plugin
+    build:
+      context: kafka
+      args:
+        DOWNLOAD_PLUGIN: true
     container_name: kafka-connect
     restart: always
     # ports:
     #   - '8079:8083'
     volumes:
       - './kafka/connect-distributed.properties:/opt/bitnami/kafka/config/connect-distributed.properties'
-      - './kafka/kafka-connect-jdbc:/opt/connectors/kafka-connect-jdbc'
+      # you can bind your connector dir for test(disable DOWNLOAD_PLUGIN, skip download in image), otherwise use the official connector
+      # - './kafka/kafka-connect-jdbc:/opt/connectors/kafka-connect-jdbc'
     depends_on:
       - kafka
     command:     

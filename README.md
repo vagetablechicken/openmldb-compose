@@ -560,6 +560,8 @@ Then you can manage connector by rest api in any container. I add a performance 
 
 - [ ] performance test, use talking data source, and java producer. Ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>.
 - [ ] Kafka connect image, ref <https://openmldb.ai/docs/zh/main/integration/online_datasources/kafka_connector_demo.html#kubernetes>
+- [ ] integrate test in compose: send partial columns value, <= table schema, works and insert to null
+- [ ] what about table column not null?
 
 ### Tips
 

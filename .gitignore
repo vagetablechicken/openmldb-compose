@@ -10,3 +10,5 @@ test/scala/target/
 iceberg-rest-image/bin/
 kafka/kafka-connect-jdbc*
 kafka/**/target/
+
+additions/*
