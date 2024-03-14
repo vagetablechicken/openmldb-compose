@@ -18,21 +18,35 @@ def http(url, method='post', ignore=False, http_code=200, **kwargs):
     except JSONDecodeError:
         print("Response is not a JSON object", ret)
 
-# use apiserver for openmldb
-
-api='http://openmldb-compose-api-1:9080'
-http(f'{api}/dbs/foo', json={'mode':'online','sql':'create database if not exists kafka_test;'})
-http(f'{api}/dbs/foo', json={'mode':'online','sql':'create table if not exists kafka_test.auto_schema (ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int);'})
-http(f'{api}/dbs/foo', json={'mode':'online','sql':'truncate table kafka_test.auto_schema;'})
-http(f'{api}/dbs/foo', json={'mode':'online','sql':'select * from kafka_test.auto_schema;'})
-
-# kafka connector setup: drop topic(avoid legacy), recreate connector
 # read config from yml
 yml='case.yml'
 import yaml
 with open(yml) as f:
     config = yaml.safe_load(f)
 print(config)
+
+id = config['run_case_id']
+run_case = config['cases'][0] if not id else next(filter(lambda x: x['id'] == id, config['cases']))
+
+print(f'run case: {run_case["id"]}')
+# use apiserver for openmldb
+# create database, table(optional, check auto.schema)
+db = config['openmldb']['database']
+api=f'http://{config["openmldb"]["apiserver.address"]}'
+
+http(f'{api}/dbs/foo', json={'mode':'online','sql':f'create database if not exists {db};'})
+
+kafka_append_conf = run_case['append_conf']
+if 'auto.schema' in kafka_append_conf and kafka_append_conf['auto.schema'] == 'true':
+    table = run_case['openmldb']['table']
+    schema = run_case['openmldb']['schema']
+    assert table, 'openmldb table is required'
+    assert schema, 'table schema is required when table is not None'
+    http(f'{api}/dbs/foo', json={'mode':'online','sql':f'create table if not exists {db}.{table} ({schema});'})
+    http(f'{api}/dbs/foo', json={'mode':'online','sql':f'truncate table {db}.{table};'})
+    http(f'{api}/dbs/foo', json={'mode':'online','sql':f'select count(*) from {db}.{table};'})
+
+# kafka connector setup: drop topic(avoid legacy), recreate connector
 import os
 os.system('pip install kafka-python')
 from kafka.admin import KafkaAdminClient
@@ -40,14 +54,10 @@ kafka_addr=config['kafka']['bootstrap.servers']
 connect_addr=config['kafka']['connect.listeners']
 admin_client = KafkaAdminClient(bootstrap_servers=[kafka_addr])
 
-id = config['run_case_id']
-
-run_case = config['cases'][0] if not id else next(filter(lambda x: x['id'] == id, config['cases']))
-topic = run_case['append_conf']['topics'] # only one
-
+topic = kafka_append_conf['topics'] # only one
 connector_conf = config['common_connector_conf']
-connector_conf.update(run_case['append_conf'])
-connector = run_case['append_conf']['name']
+connector_conf.update(kafka_append_conf)
+connector = kafka_append_conf['name']
 
 print(topic, connector, connector_conf)
 

@@ -14,6 +14,7 @@ kafka: {
 openmldb:
   # use apiserver for admin, to avoid import jdbc jars. kafka use another option `connection.url` to connect, watch out.
   apiserver.address: openmldb-compose-api-1:9080
+  database: kafka_test
 common_connector_conf: {
   "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
   "tasks.max": "1",
@@ -31,12 +32,14 @@ cases:
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "false"
     }
-    openmldb_ddl: "create table auto_schema(ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int)"
+    openmldb: {
+      "table": "auto_schema",
+      "schema": "ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int"
+    }
     files: 
-      # - "train.csv" # file path
+      - "train-pre.csv" # file path(abs or relat to python script file)
     expect:
-      table: "auto_schema"
-    # can't check openmldb table result cuz too large, but it's simpler if we provide the table name
+    # can't check openmldb table result cuz too large
     # curl http://kafka-connect:8083/connectors/schema-connector/status
     # curl -X POST http://kafka-connect:8083/connectors/schema-connector/tasks/0/restart
 
@@ -50,8 +53,10 @@ cases:
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter.schemas.enable": "false"
     }
-    openmldb_ddl: "create table auto_schema(ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int)"
+    openmldb: {
+      "table": "auto_schema",
+      "schema": "ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int"
+    }
     files: 
-      # - "train.csv" # file path
+      - "train-pre.csv"
     expect:
-      table: "auto_schema"
