@@ -1,5 +1,0 @@
-# For unner and deploy-node, so make it in the root path
-# Ignore everything in this directory 
-* 
-# Except this file !.gitignore
-!.gitignore
