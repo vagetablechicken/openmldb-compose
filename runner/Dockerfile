@@ -17,7 +17,7 @@ RUN mkdir -p /root/.ssh/ && \
     chmod 600 /root/.ssh/config
 
 COPY ssh-keys/ /keys/
-ADD additions /additions
+COPY additions/ /additions/
 RUN if [ -f "/additions/sources.list" ] ; then cp /additions/sources.list /etc/apt/ ; fi
 RUN cat /keys/id_rsa.pub >> /root/.ssh/authorized_keys
 RUN cat /keys/config >> /root/.ssh/config

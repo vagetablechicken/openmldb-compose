@@ -560,6 +560,8 @@ Then you can manage connector by rest api in any container. I add a performance 
 
 - [ ] performance test, use talking data source, and java producer. Ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>.
 - [ ] Kafka connect image, ref <https://openmldb.ai/docs/zh/main/integration/online_datasources/kafka_connector_demo.html#kubernetes>
+- [ ] integrate test in compose: send partial columns value, <= table schema, works and insert to null
+- [ ] what about table column not null?
 
 ### Tips
 
@@ -572,6 +574,26 @@ If zk has some legacy metadata, may cause `Timed out while waiting to get end of
 You can check `curl http://kafka-connect:8083/connectors/schema-connector/status` to know the status of the connector. But the connector write concurrency is not related to the number of connector tasks. If the topic is 1 partition, only 1 task runs. So I'll set the topic partition and task number to the same.
 
 #### Test in one
+
+The host:
+```
+Architecture:          x86_64
+CPU op-mode(s):        32-bit, 64-bit
+Byte Order:            Little Endian
+CPU(s):                40
+On-line CPU(s) list:   0-39
+Thread(s) per core:    2
+Core(s) per socket:    10
+Socket(s):             2
+NUMA node(s):          2
+Vendor ID:             GenuineIntel
+CPU family:            6
+Model:                 79
+Model name:            Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz
+```
+```
+Memory DDR4 512GB
+```
 
 OpenMLDB: 2 tablet servers(24 threads per server), table only one time index, replica 2 partition 8.
 
