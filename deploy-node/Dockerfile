@@ -7,7 +7,9 @@ RUN if [ -f "/additions/sources.list" ] ; then cp /additions/sources.list /etc/a
 RUN if [ -f "/additions/pypi.txt" ] ; then pip config set global.index-url $(cat /additions/pypi.txt) ; fi
 # hdfs tool failed, use raw hadoop binary
 # RUN echo "deb https://dl.bintray.com/wangzw/deb trusty contrib" | tee /etc/apt/sources.list.d/bintray-wangzw-deb.list install libhdfs3 libhdfs3-dev pip install hdfs3
-RUN apt update && apt install -y ssh curl netcat apt-transport-https less
+RUN apt update
+# may failed on install ssh(openssh-server)
+RUN apt install -y ssh curl netcat apt-transport-https less putils-ping
 RUN pip3 install pyspark==3.2.1 pyarrow pytest
 
 RUN mkdir -p /root/.ssh/ && touch /root/.ssh/config && chmod 600 /root/.ssh/config && cat /keys/config >> /root/.ssh/config && chmod 600 /keys/id_rsa
