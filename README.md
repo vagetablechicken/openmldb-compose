@@ -569,11 +569,9 @@ Kafka depends on ZooKeeper, but it use the root dir `/`. If use OpenMLDB zookeep
 
 If zk has some legacy metadata, may cause `Timed out while waiting to get end offsets for topic 'connect-offsets' on brokers at kafka:9092`.
 
-### Performance Test
+### Standalone Performance Test
 
 You can check `curl http://kafka-connect:8083/connectors/schema-connector/status` to know the status of the connector. But the connector write concurrency is not related to the number of connector tasks. If the topic is 1 partition, only 1 task runs. So I'll set the topic partition and task number to the same.
-
-#### Test in one
 
 The host:
 ```
@@ -645,7 +643,50 @@ thread race and lock, qps <= 2.5k
 bthread_worker_count: bthread映射至的pthread的个数。
 > <https://github.com/apache/brpc/issues/137#issuecomment-348849721>
 
-If need kafka metrics, see <https://github.com/bitnami/charts/blob/main/bitnami/kafka/README.md>, enable metrics.
+If need kafka metrics, enable metrics ref <https://github.com/bitnami/charts/blob/main/bitnami/kafka/README.md>.
+
+### Distribution Performance Test
+
+We use 4 machines to run the test, the machines are the same as the standalone test.
+```
+Host1: Kafka Zookeeper, Kafka Server, Kafka Connect, Spark Writer, Prometheus, Grafana
+Host2: Kafka Connect, OpenMLDB ZooKeeper, OpenMLDB NameServer, OpenMLDB ApiServer
+Host3: OpenMLDB TabletServer, [Kafka Connect]
+Host4: OpenMLDB TabletServer
+
+* [] means optional
+```
+
+The OpenMLDB cluster has 2 tablet servers, 24 threads per server(default). We create a table with 1 time index, replica 2 partition 8.
+And the sink tasks will be evenly distributed across two Kafka Connect services.
+
+- 2 Kafka Connect, 78 partitions, 78 tasks.max
+
+| qps/t | p99/t  |  p9999/t |  avg/t |  
+|---|---|---|---|
+| ~95k | < 0.19ms | 120ms | < 0.09ms |
+
+Max qps: 93k/s + 95k/s = 188k/s
+
+![alt text](images/78-78-qps.png)
+
+![alt text](images/78-78-latency.png)
+
+As you can see, the latency is low, and the qps is ~2x than one Kafka Connect writes. 
+
+The partition of topic is more important than the max task number of Kafka Connector. I've test 80 partitions with 64 tasks.max, it's just a bit slower, still ~90k/t. But if tasks.max is too small, it will be slow, e.g. 32 tasks.max, 60k/t.
+
+- 3 Kafka Connect, 120 partitions, 120 tasks.max
+
+If we create one more Kafka Connect in Host 3, we can make Kafka connector more parrallelism. Here, we set 120 partitions and 120 tasks.max. The qps is ~100k/t(the peak qps is 102k/t), and the latency is still low.
+
+| qps/t | p99/t  |  p9999/t |  avg/t |  
+|---|---|---|---|
+| ~100k | < 1ms | < 180ms | < 0.02ms |
+
+![alt text](images/120-120-qps.png)
+
+![alt text](images/120-120-latency.png)
 
 ## Prometheus + Grafana
 
