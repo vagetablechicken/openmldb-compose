@@ -9,7 +9,7 @@ kafka: {
     "key.serializer":"org.apache.kafka.common.serialization.StringSerializer",
     "value.serializer":"org.apache.kafka.common.serialization.StringSerializer"  
   },
-  "topic.partitions": 40
+  "topic.partitions": 64
 }
 openmldb:
   # use apiserver for admin, to avoid import jdbc jars. kafka use another option `connection.url` to connect, watch out.
@@ -21,7 +21,7 @@ common_connector_conf: {
   # test db here, will be deleted before test, don't depend on the data in it.
   "connection.url": "jdbc:openmldb:///kafka_test?zk=openmldb-compose-zk-1:2181&zkPath=/openmldb"
 }
-run_case_id: "multi-tasks" # run the first case by default
+run_case_id: "multi-tasks-multi-idx" # run the first case by default
 cases:
   - id: "auto.schema"
     append_conf: {
@@ -59,4 +59,26 @@ cases:
     }
     files: 
       - "train-pre.csv"
+    expect:
+
+  - id: "multi-tasks-multi-idx"
+    append_conf: {
+      "tasks.max": "64",
+      "topics": "auto_schema",
+      "name": "schema-connector",
+      "auto.create": "false",
+      "auto.schema": "true",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "false"
+    }
+    openmldb: {
+      "table": "auto_schema",
+      # "schema": "ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int",
+      "ddl": "create table auto_schema(ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int, 
+          index(key=ip), 
+          index(key=(ip,app)),
+          index(key=(ip,app,os)))"
+    }
+    files: 
+      - "train.csv"
     expect:

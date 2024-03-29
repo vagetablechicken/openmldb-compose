@@ -38,7 +38,7 @@ tm_update() {
 }
 
 restarta() {
-  /work/openmldb/sbin/stop-all.sh && /work/openmldb/sbin/clear-all.sh && starta
+  /work/openmldb/sbin/stop-all.sh && /work/openmldb/sbin/clear-all.sh && starta && echo "SET GLOBAL deploy_stats = 'on';" | /work/openmldb/sbin/openmldb-cli.sh
 }
 
 st() {

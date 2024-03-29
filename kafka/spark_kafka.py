@@ -38,13 +38,18 @@ http(f'{api}/dbs/foo', json={'mode':'online','sql':f'create database if not exis
 
 kafka_append_conf = run_case['append_conf']
 if 'auto.schema' in kafka_append_conf and kafka_append_conf['auto.schema'] == 'true':
-    table = run_case['openmldb']['table']
-    schema = run_case['openmldb']['schema']
+    om_conf = run_case['openmldb']
+    table = om_conf['table']
+    schema = om_conf.get('schema', None)
+    ddl = om_conf.get('ddl', None)
     assert table, 'openmldb table is required'
-    assert schema, 'table schema is required when table is not None'
-    http(f'{api}/dbs/foo', json={'mode':'online','sql':f'create table if not exists {db}.{table} ({schema});'})
-    http(f'{api}/dbs/foo', json={'mode':'online','sql':f'truncate table {db}.{table};'})
-    http(f'{api}/dbs/foo', json={'mode':'online','sql':f'select count(*) from {db}.{table};'})
+    assert (schema and not ddl) or (not schema and ddl), 'table schema/ddl is required when table is not None, but only one is allowed'
+    http(f'{api}/dbs/{db}', json={'mode':'online','sql':f'drop table if exists {db}.{table};'})
+    if schema:
+        http(f'{api}/dbs/{db}', json={'mode':'online','sql':f'create table if not exists {db}.{table} ({schema});'})
+    elif ddl:
+        http(f'{api}/dbs/{db}', json={'mode':'online','sql':f'{ddl}'})
+    http(f'{api}/dbs/{db}', json={'mode':'online','sql':f'select count(*) from {db}.{table};'})
 
 # kafka connector setup: drop topic(avoid legacy), recreate connector
 import os
@@ -64,7 +69,11 @@ print(topic, connector, connector_conf)
 # delete connector first, to avoid topic delete failed
 print('delete connector')
 http(f'{connect_addr}/connectors/{connector}', method='delete', ignore=True)
-
+#exit()
+print('create connector')
+http(f'{connect_addr}/connectors', json={'name':connector, 'config':connector_conf}, http_code=201, ignore=True)
+print('just recreate connector')
+exit()
 print(f'recreate topic {topic}')
 from kafka.errors import UnknownTopicOrPartitionError
 try:
@@ -91,8 +100,8 @@ except Exception as e:
 tp = admin_client.describe_topics([topic])
 print(tp)
 
-print('create connector')
-http(f'{connect_addr}/connectors', json={'name':connector, 'config':connector_conf}, http_code=201, ignore=True)
+#print('create connector')
+#http(f'{connect_addr}/connectors', json={'name':connector, 'config':connector_conf}, http_code=201, ignore=True)
 
 spark = SparkSession.builder\
    .master("local[16]")\
@@ -104,10 +113,12 @@ spark = SparkSession.builder\
 spark.sparkContext.setLogLevel("INFO")
 # Read all lines into a single value dataframe  with column 'value'
 # TODO: Replace with real file. 
+files = run_case['files']
+assert files, 'file is required'
 # better to set schema when read csv # TODO attributed time
 df = spark.read.format('csv').option('header', 'true')\
     .schema("ip int,app int,device int,os int,channel int,click_time timestamp,attributed_time timestamp,is_attributed int")\
-    .load('file:///work/ext/jmh/test/train.csv')
+    .load(files)
 # timestamp to int ms, ignore null(set 0) for temp
 from pyspark.sql.functions import unix_timestamp
 df = df.withColumn('click_time', unix_timestamp('click_time')*1000).withColumn('attributed_time', unix_timestamp('attributed_time')*1000)
@@ -136,3 +147,6 @@ df.select('key','value').write.format("kafka")\
     .option("kafka.bootstrap.servers", kafka_addr)\
     .option("topic", topic)\
     .save()
+
+print('create connector')
+http(f'{connect_addr}/connectors', json={'name':connector, 'config':connector_conf}, http_code=201, ignore=True)
