@@ -558,10 +558,7 @@ COMPOSE_PROFILES=all docker-compose2 up -d
 
 Then you can manage connector by rest api in any container. I add a performance test here for kafka connect, the performance will be better if you use a real kafka cluster, don't share hardware resources with OpenMLDB cluster, and more parrallelism.
 
-- [ ] performance test, use talking data source, and java producer. Ref <https://github.com/4paradigm/OpenMLDB/blob/e8811278c293596bc3963c51bac2d47c45cd65a4/test/integration-test/openmldb-test-java/openmldb-ecosystem/src/test/resources/kafka_test_cases.yml>.
-- [ ] Kafka connect image, ref <https://openmldb.ai/docs/zh/main/integration/online_datasources/kafka_connector_demo.html#kubernetes>
-- [ ] integrate test in compose: send partial columns value, <= table schema, works and insert to null
-- [ ] what about table column not null?
+Kafka connect image, just download connector and setup, check [Dockerfile](https://github.com/vagetablechicken/openmldb-compose/blob/main/kafka/Dockerfile).
 
 ### Tips
 
