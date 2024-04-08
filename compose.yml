@@ -247,7 +247,7 @@ services:
       - CATALOG_URI=thrift://metastore:9083
     depends_on:
       - metastore
-  # 9092
+# KAFKA profile
   # kafka cluster ref https://github.com/bitnami/containers/blob/7db812f196808feb47cba5f1f17377c6629c4281/bitnami/kafka/docker-compose-cluster.yml
   kafka-zookeeper:
     profiles: [kafka, all]
@@ -298,10 +298,10 @@ services:
     #   - '8079:8083'
     volumes:
       # debug level will print too much logs, qps will be slow
-      #- './kafka/connect-log4j.properties:/opt/bitnami/kafka/config/connect-log4j.properties'
+      # - './kafka/connect-log4j.properties:/opt/bitnami/kafka/config/connect-log4j.properties'
       - './kafka/connect-distributed.properties:/opt/bitnami/kafka/config/connect-distributed.properties'
       # you can bind your connector dir for test(disable DOWNLOAD_PLUGIN, skip download in image), otherwise use the official connector
-      - './kafka/kafka-connect-jdbc:/opt/connectors/kafka-connect-jdbc'
+      # - './kafka/kafka-connect-jdbc:/opt/connectors/kafka-connect-jdbc'
     depends_on:
       - kafka
     command:     
@@ -345,11 +345,7 @@ services:
     volumes:
       - grafana_storage:/var/lib/grafana
     # don't depends on prometheus to avoid create datasource and dashboard again
-    command:
-      - /bin/bash
-      - -c
-      - |
-        # TODO: https://grafana.com/docs/grafana/latest/developers/http_api/create-api-tokens-for-org/
+    # TODO: https://grafana.com/docs/grafana/latest/developers/http_api/create-api-tokens-for-org/
   openmldb-exporter:
     profiles: [monitor, all]
     image: ghcr.io/4paradigm/openmldb-exporter
@@ -359,7 +355,7 @@ services:
       - |
         pip install openmldb==0.8.5 -i https://pypi.tuna.tsinghua.edu.cn/simple
         /usr/local/bin/openmldb-exporter --log.level=INFO --config.zk_root=openmldb-compose-zk-1:2181 --config.zk_path=/openmldb
-    # to debug
+    # debug log
     # volumes:
     #   - /home/huangwei/openmldb-exporter/openmldb_exporter:/usr/local/lib/python3.11/site-packages/openmldb_exporter
 volumes:

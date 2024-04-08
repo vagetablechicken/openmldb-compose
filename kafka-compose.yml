@@ -2,19 +2,13 @@ version: '3'
 # name: openmldb_sbin # 3.8 supports
 
 services:
-  deploy-node:
+  dev-node:
     profiles: [all]
-    container_name: deploy-node
+    container_name: dev-node
     image: 4pdosc/openmldb:0.8.5
-    # build:
-    #   context: ./
-    #   args:
-    #     DEPLOY_NODE_IMAGE: ${DEPLOY_NODE_IMAGE}
-    #     HIVE_VERSION: ${HIVE_VERSION}
-    #   dockerfile: deploy-node/Dockerfile
     restart: always
     tty: true
-    hostname: deploy-node
+    hostname: dev-node
     volumes:
       # test resources mount, don't comment it
       - type: bind
@@ -37,7 +31,6 @@ services:
       # /work/openmldb/sbin/deploy-all.sh && /work/openmldb/sbin/start-all.sh
       # echo "SET GLOBAL deploy_stats = 'on';" | /work/openmldb/sbin/openmldb-cli.sh
       tail -f /dev/null
-  # 9092
   # kafka cluster ref https://github.com/bitnami/containers/blob/7db812f196808feb47cba5f1f17377c6629c4281/bitnami/kafka/docker-compose-cluster.yml
   kafka-zookeeper:
     profiles: [kafka, all]
@@ -77,7 +70,7 @@ services:
     #   - './kafka_data:/bitnami/kafka'
   kafka-connect:
     profiles: [kafka, all]
-    image: kafka-openmldb-plugin
+    image: ghcr.io/vagetablechicken/kafka-connect
     build:
       context: kafka
       args:

@@ -546,11 +546,6 @@ So try to read hive table by scala? not spark session.
 ## Kafka
 
 ```bash
-cd kafka
-# or cp your pacakage here
-curl -SLO https://openmldb.ai/download/kafka-connector/kafka-connect-jdbc.tgz
-tar zxf kafka-connect-jdbc.tgz
-cd ..
 docker-compose2 down kafka-zookeeper kafka kafka-connect -v
 # COMPOSE_PROFILES=hadoop,kafka
 COMPOSE_PROFILES=all docker-compose2 up -d
@@ -558,7 +553,7 @@ COMPOSE_PROFILES=all docker-compose2 up -d
 
 Then you can manage connector by rest api in any container. I add a performance test here for kafka connect, the performance will be better if you use a real kafka cluster, don't share hardware resources with OpenMLDB cluster, and more parrallelism.
 
-Kafka connect image, just download connector and setup, check [Dockerfile](https://github.com/vagetablechicken/openmldb-compose/blob/main/kafka/Dockerfile).
+Kafka connect image with OpenMLDB plugin, `docker pull ghcr.io/vagetablechicken/kafka-connect:latest`. To build your own image, check [Dockerfile](https://github.com/vagetablechicken/openmldb-compose/blob/main/kafka/Dockerfile). This image actually has both kafka server and connect with OpenMLDB plugin, you can pull only this one.
 
 ### Tips
 
